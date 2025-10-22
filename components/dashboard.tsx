@@ -18,9 +18,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { ModernSidebar } from "@/components/modern-sidebar"
-import { AppBar } from "@/components/app-bar"
-import { cn } from "@/lib/utils"
+import { useUserData } from "@/hooks/use-user-data"
 
 
 const recentPayrolls = [
@@ -43,27 +41,20 @@ const pendingItems = [
 ]
 
 export function Dashboard() {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const { userData, balance, loading } = useUserData()
+
+  // Get username or fallback to email or "there"
+  const displayName = userData?.username || userData?.email?.split('@')[0] || 'there'
+  // Get balance or fallback to 0
+  const userBalance = balance?.availableBalance || balance?.amount || 0
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* App Bar */}
-      <AppBar />
-
-      {/* Modern Sidebar */}
-      <ModernSidebar 
-        collapsed={sidebarCollapsed} 
-        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-      />
-
-      {/* Main Content Area */}
-      <main className={cn(
-        "min-h-screen pt-24 px-8 pb-8 space-y-8 transition-all duration-300",
-        sidebarCollapsed ? "ml-16" : "ml-72"
-      )}>
+    <div className="space-y-8">
           {/* Welcome Header */}
           <div className="mb-8">
-            <h2 className="text-3xl font-bold text-slate-900">Good morning, John 👋</h2>
+            <h2 className="text-3xl font-bold text-slate-900">
+              Good morning, {loading ? '...' : displayName} 👋
+            </h2>
             <p className="text-slate-600 mt-1">Here's what's happening with your business and personal finances today.</p>
           </div>
 
@@ -357,7 +348,9 @@ export function Dashboard() {
               </div>
               
               <div className="mb-6">
-                <div className="text-3xl font-bold text-slate-900 mb-2">$1,250.60</div>
+                <div className="text-3xl font-bold text-slate-900 mb-2">
+                  {loading ? '...' : `$${userBalance.toFixed(2)}`}
+                </div>
                 <div className="text-sm text-slate-600 flex items-center gap-2">
                   USDC Balance
                   <Badge variant="secondary" className="bg-blue-100 text-blue-700">
@@ -436,9 +429,8 @@ export function Dashboard() {
                 </div>
               ))}
             </div>
-          </div>
-        </main>
-      </div>
+        </div>
+    </div>
   )
 }
 

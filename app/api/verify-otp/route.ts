@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyAuth } from '@/lib/services/auth-service';
+import { generateToken, setAuthCookie, setGridUserIdCookie } from '@/lib/services/jwt-service';
 import { gridClient } from '@/lib/grid-client';
+
+// Force Node.js runtime for JWT compatibility
+export const runtime = 'nodejs';
 
 // POST /api/verify-otp - Verify OTP code
 export async function POST(request: NextRequest) {
@@ -19,56 +24,91 @@ export async function POST(request: NextRequest) {
     const isValidOtp = /^\d{6}$/.test(normalizedOtp);
     if (!isValidOtp) {
       return NextResponse.json(
-        { success: false, error: 'Invalid OTP format' },
+        { success: false, error: 'Invalid OTP format. Please enter 6 digits. 🔢' },
         { status: 400 }
       );
     }
 
-    // Read session secrets from secure cookie
-    const cookieValue = request.cookies.get('grid_session_secrets')?.value;
-    if (!cookieValue) {
+    // Extract email
+    const email = user.email || user.identifier;
+    if (!email) {
       return NextResponse.json(
-        { success: false, error: 'Missing session secrets. Please restart authentication.' },
-        { status: 400 }
-      );
-    }
-    let sessionSecrets;
-    try {
-      sessionSecrets = JSON.parse(cookieValue);
-    } catch {
-      return NextResponse.json(
-        { success: false, error: 'Invalid session secrets cookie.' },
+        { success: false, error: 'Email is required' },
         { status: 400 }
       );
     }
 
-    let result: unknown
-    try {
-      result = await gridClient.completeAuthAndCreateAccount({
-        otpCode: normalizedOtp,
-        user,
-        sessionSecrets,
-      })
-    } catch (sdkError) {
+    // Get the auth flow and user data from cookies
+    const authFlow = request.cookies.get('grid_auth_flow')?.value as 'signup' | 'login' | undefined;
+    const userDataCookie = request.cookies.get('grid_user_data')?.value;
+    
+    console.log('[API] 📂 Auth flow from cookie:', authFlow);
+    console.log('[API] 📦 User data cookie exists:', !!userDataCookie);
+
+    if (!userDataCookie) {
       return NextResponse.json(
-        { success: false, error: 'Invalid or expired OTP' },
+        { success: false, error: 'Session expired. Please request a new OTP.' },
+        { status: 400 }
+      );
+    }
+
+    // Parse the user data from createAccount
+    const userData = JSON.parse(userDataCookie);
+    console.log('[API] 👤 User data from cookie:', JSON.stringify(userData, null, 2));
+
+    // Use auth-service to verify OTP with the user data from createAccount
+    const verifyResult = await verifyAuth(email, normalizedOtp, userData, authFlow);
+
+    if (!verifyResult.success) {
+      return NextResponse.json(
+        { success: false, error: verifyResult.error || 'Incorrect OTP code. Please check and try again. 🔐' },
         { status: 401 }
       );
     }
 
-    try {
-      const gridId = (result as any)?.id ?? (result as any)?.user?.id ?? (result as any)?.account?.id ?? (result as any)?.gridId
-      if (gridId) console.log('Grid user/account verified with id:', gridId)
-    } catch {}
+    console.log('[API] Authentication successful:', {
+      userId: verifyResult.userId,
+      authFlow: verifyResult.authFlow,
+      isNewAccount: verifyResult.isNewAccount,
+    });
+
+    // Generate JWT token
+    const token = await generateToken({
+      userId: verifyResult.userId!,
+      email: email,
+      username: undefined, // Username set later via /api/set-username
+      accountAddress: verifyResult.address,
+      gridUserId: verifyResult.gridUserId,
+    });
+
+    // Set auth cookie and grid user ID cookie
+    await setAuthCookie(token);
+    
+    // Set grid_user_id in a separate cookie accessible from frontend
+    if (verifyResult.gridUserId) {
+      await setGridUserIdCookie(verifyResult.gridUserId);
+    }
 
     const response = NextResponse.json({
       success: true,
-      message: 'OTP verified successfully',
+      message: 'Authentication successful! ✨',
+      authFlow: verifyResult.authFlow,
+      isNewAccount: verifyResult.isNewAccount,
     });
 
-    // Clear session secrets cookie after successful verification
+    // Clear user data and auth flow cookies after successful verification
     response.cookies.set({
-      name: 'grid_session_secrets',
+      name: 'grid_user_data',
+      value: '',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 0,
+    });
+
+    response.cookies.set({
+      name: 'grid_auth_flow',
       value: '',
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -78,12 +118,21 @@ export async function POST(request: NextRequest) {
     });
 
     return response;
-  } catch (error) {
-    console.error('Error verifying OTP:', error);
+  } catch (error: any) {
+    console.error('[API] Error verifying OTP:', error);
+
+    // Check for specific error messages
+    const errorMessage = error?.message || '';
+    if (errorMessage.includes('Invalid or expired OTP')) {
+      return NextResponse.json(
+        { success: false, error: 'Incorrect OTP code. Please check and try again. 🔐' },
+        { status: 401 }
+      );
+    }
 
     return NextResponse.json(
-      { success: false, error: 'Invalid or expired OTP' },
-      { status: 401 }
+      { success: false, error: 'Verification failed. Please try again. ⚠️' },
+      { status: 500 }
     );
   }
 }

@@ -29,9 +29,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ModernSidebar } from "@/components/modern-sidebar"
-import { AppBar } from "@/components/app-bar"
-import { cn } from "@/lib/utils"
 
 
 const employees = [
@@ -83,7 +80,6 @@ const employees = [
 ]
 
 export function Payroll() {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [newEmployee, setNewEmployee] = useState({
     name: "",
     walletAddress: "",
@@ -106,21 +102,7 @@ export function Payroll() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* App Bar */}
-      <AppBar />
-
-      {/* Modern Sidebar */}
-      <ModernSidebar 
-        collapsed={sidebarCollapsed} 
-        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-      />
-
-      {/* Main Content Area */}
-      <main className={cn(
-        "min-h-screen pt-24 px-8 pb-8 space-y-8 transition-all duration-300",
-        sidebarCollapsed ? "ml-16" : "ml-72"
-      )}>
+    <div className="space-y-8">
           {/* Payroll Header */}
           <div className="mb-8">
             <h2 className="text-3xl font-bold text-slate-900">Payroll Management</h2>
@@ -361,7 +343,6 @@ export function Payroll() {
               </div>
             </div>
           </div>
-        </main>
-      </div>
+    </div>
   )
 }

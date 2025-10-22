@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "EmployeePosition" ADD COLUMN     "depositShares" DOUBLE PRECISION NOT NULL DEFAULT 0,
+ADD COLUMN     "depositValue" DOUBLE PRECISION NOT NULL DEFAULT 0,
+ADD COLUMN     "lastSyncedAt" TIMESTAMP(3);

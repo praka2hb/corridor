@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Image from "next/image"
 import { 
@@ -12,10 +12,13 @@ import {
   ChevronRight,
   FileText,
   ChevronLeft,
-  Briefcase
+  Briefcase,
+  LogOut,
+  Plus
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { toast } from "@/hooks/use-toast"
 
 interface SidebarItem {
   id: string
@@ -23,6 +26,7 @@ interface SidebarItem {
   icon: React.ComponentType<{ className?: string }>
   href?: string
   submenu?: SubMenuItem[]
+  isDynamic?: boolean
 }
 
 interface SubMenuItem {
@@ -32,7 +36,13 @@ interface SubMenuItem {
   href: string
 }
 
-const sidebarItems: SidebarItem[] = [
+interface Organization {
+  id: string
+  name: string
+  role: string
+}
+
+const staticSidebarItems: SidebarItem[] = [
   {
     id: "home",
     label: "Home",
@@ -40,35 +50,16 @@ const sidebarItems: SidebarItem[] = [
     href: "/home"
   },
   {
-    id: "business",
-    label: "Business",
-    icon: Briefcase,
-    submenu: [
-      {
-        id: "payroll",
-        label: "Payroll",
-        icon: Wallet,
-        href: "/payroll"
-      },
-      {
-        id: "orgs",
-        label: "Orgs",
-        icon: Building2,
-        href: "/organizations"
-      },
-      {
-        id: "reports",
-        label: "Reports",
-        icon: FileText,
-        href: "/reports"
-      }
-    ]
-  },
-  {
-    id: "ezcash",
-    label: "Ez Cash",
+    id: "payments",
+    label: "Payments",
     icon: Send,
     href: "/payments"
+  },
+  {
+    id: "organization",
+    label: "Organizations",
+    icon: Building2,
+    isDynamic: true,
   }
 ]
 
@@ -78,9 +69,80 @@ interface ModernSidebarProps {
 }
 
 export function ModernSidebar({ collapsed = false, onToggleCollapse }: ModernSidebarProps) {
-  const [expandedItems, setExpandedItems] = useState<string[]>(["business"])
+  const [expandedItems, setExpandedItems] = useState<string[]>(["organization"])
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [organizations, setOrganizations] = useState<Organization[]>([])
+  const [loadingOrgs, setLoadingOrgs] = useState(false)
+  const [isVisible, setIsVisible] = useState(true)
   const router = useRouter()
   const pathname = usePathname()
+
+  // Fetch organizations on mount and handle window changes
+  useEffect(() => {
+    fetchOrganizations()
+  }, [])
+
+  // Handle window focus to refresh organizations
+  useEffect(() => {
+    const handleWindowFocus = () => {
+      fetchOrganizations()
+    }
+
+    const handleVisibilityChange = () => {
+      setIsVisible(!document.hidden)
+      if (!document.hidden) {
+        fetchOrganizations()
+      }
+    }
+
+    window.addEventListener('focus', handleWindowFocus)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.removeEventListener('focus', handleWindowFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [])
+
+  const fetchOrganizations = async () => {
+    try {
+      setLoadingOrgs(true)
+      const response = await fetch('/api/organization')
+      const data = await response.json()
+      
+      if (data.success && data.organizations) {
+        setOrganizations(data.organizations)
+      }
+    } catch (err) {
+      console.error('Failed to fetch organizations:', err)
+    } finally {
+      setLoadingOrgs(false)
+    }
+  }
+
+  // Build sidebar items dynamically
+  const sidebarItems: SidebarItem[] = staticSidebarItems.map(item => {
+    if (item.isDynamic && item.id === 'organization') {
+      return {
+        ...item,
+        submenu: [
+          ...organizations.map(org => ({
+            id: org.id,
+            label: org.name,
+            icon: Building2,
+            href: `/organization/${org.id}`
+          })),
+          {
+            id: 'create-org',
+            label: 'Create New',
+            icon: Plus,
+            href: '/organization/new'
+          }
+        ]
+      }
+    }
+    return item
+  })
 
   const toggleExpanded = (itemId: string) => {
     if (collapsed) return
@@ -94,6 +156,38 @@ export function ModernSidebar({ collapsed = false, onToggleCollapse }: ModernSid
 
   const handleNavigation = (href: string) => {
     router.push(href)
+  }
+
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true)
+      const response = await fetch('/api/logout', {
+        method: 'POST',
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        toast({
+          title: "Logged out successfully",
+          description: "Redirecting to auth page...",
+        })
+        
+        // Redirect to auth page
+        router.push('/auth')
+      } else {
+        throw new Error(data.error || 'Failed to logout')
+      }
+    } catch (error: any) {
+      console.error('Logout error:', error)
+      toast({
+        title: "Logout failed",
+        description: error.message || "Please try again",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoggingOut(false)
+    }
   }
 
   const isActive = (href?: string, submenu?: SubMenuItem[]) => {
@@ -192,30 +286,37 @@ export function ModernSidebar({ collapsed = false, onToggleCollapse }: ModernSid
                     isExpanded ? "max-h-40 opacity-100" : "max-h-0 opacity-0"
                   )}>
                     <div className="ml-8 space-y-1 py-1">
-                      {item.submenu?.map((subItem) => {
-                        const SubIcon = subItem.icon
-                        const subIsActive = isSubmenuItemActive(subItem.href)
+                      {loadingOrgs && item.id === 'organization' ? (
+                        <div className="flex items-center gap-3 px-3 py-2 text-sm text-slate-500">
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600"></div>
+                          <span>Loading organizations...</span>
+                        </div>
+                      ) : (
+                        item.submenu?.map((subItem) => {
+                          const SubIcon = subItem.icon
+                          const subIsActive = isSubmenuItemActive(subItem.href)
 
-                        return (
-                          <button
-                            key={subItem.id}
-                            onClick={() => handleNavigation(subItem.href)}
-                            className={cn(
-                              "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all duration-200 group text-sm",
-                              "hover:bg-slate-50/60",
-                              subIsActive 
-                                ? "bg-blue-50/60 text-blue-700 font-medium" 
-                                : "text-slate-500 hover:text-slate-700"
-                            )}
-                          >
-                            <SubIcon className={cn(
-                              "h-4 w-4 flex-shrink-0 transition-colors duration-200",
-                              subIsActive ? "text-blue-600" : "text-slate-400 group-hover:text-slate-600"
-                            )} />
-                            <span>{subItem.label}</span>
-                          </button>
-                        )
-                      })}
+                          return (
+                            <button
+                              key={subItem.id}
+                              onClick={() => handleNavigation(subItem.href)}
+                              className={cn(
+                                "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all duration-200 group text-sm",
+                                "hover:bg-slate-50/60",
+                                subIsActive 
+                                  ? "bg-blue-50/60 text-blue-700 font-medium" 
+                                  : "text-slate-500 hover:text-slate-700"
+                              )}
+                            >
+                              <SubIcon className={cn(
+                                "h-4 w-4 flex-shrink-0 transition-colors duration-200",
+                                subIsActive ? "text-blue-600" : "text-slate-400 group-hover:text-slate-600"
+                              )} />
+                              <span>{subItem.label}</span>
+                            </button>
+                          )
+                        })
+                      )}
                     </div>
                   </div>
                 )}
@@ -223,6 +324,30 @@ export function ModernSidebar({ collapsed = false, onToggleCollapse }: ModernSid
             )
           })}
         </nav>
+
+        {/* Logout Button */}
+        <div className="p-4 border-t border-slate-200/80">
+          <Button
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            variant="ghost"
+            className={cn(
+              "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 group",
+              "hover:bg-red-50/80 hover:shadow-sm text-slate-600 hover:text-red-700",
+              collapsed && "justify-center px-2"
+            )}
+          >
+            <LogOut className={cn(
+              "flex-shrink-0 transition-colors duration-200 text-slate-500 group-hover:text-red-600",
+              collapsed ? "h-5 w-5" : "h-5 w-5"
+            )} />
+            {!collapsed && (
+              <span className="font-medium text-sm flex-1">
+                {isLoggingOut ? 'Logging out...' : 'Logout'}
+              </span>
+            )}
+          </Button>
+        </div>
       </div>
     </aside>
   )

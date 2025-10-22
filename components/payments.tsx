@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import {
   Bell,
@@ -18,9 +18,25 @@ import {
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { ModernSidebar } from "@/components/modern-sidebar"
-import { AppBar } from "@/components/app-bar"
+import { useUserData } from "@/hooks/use-user-data"
+import { SendModal } from "@/components/send-modal"
+import { DepositModal } from "@/components/deposit-modal"
 import { cn } from "@/lib/utils"
+
+interface Transaction {
+  id: string
+  signature: string
+  direction: 'in' | 'out'
+  counterparty: string
+  amount: string
+  currency: string
+  descriptor: string
+  time: string
+  timestamp: string | number
+  status: string
+  type: string
+  rawAmount: number
+}
 
 const quickActions = [
   {
@@ -49,57 +65,169 @@ const quickActions = [
   },
 ] as const
 
-const recentTransfers = [
-  {
-    id: 1,
-    direction: "out",
-    counterparty: "Orbit Design Studio",
-    amount: "-1,250.00",
-    descriptor: "Milestone payout",
-    time: "2h ago",
-    status: "Completed",
-  },
-  {
-    id: 2,
-    direction: "in",
-    counterparty: "LayerZero Ops",
-    amount: "+4,500.00",
-    descriptor: "Treasury top-up",
-    time: "Yesterday",
-    status: "Cleared",
-  },
-  {
-    id: 3,
-    direction: "out",
-    counterparty: "Velocity Labs",
-    amount: "-820.00",
-    descriptor: "Bonus stream",
-    time: "2 days ago",
-    status: "Pending",
-  },
-]
-
 export function Payments() {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sendModalOpen, setSendModalOpen] = useState(false)
+  const [depositModalOpen, setDepositModalOpen] = useState(false)
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [loadingTransactions, setLoadingTransactions] = useState(true)
+  const { userData, balances, loading, refreshBalance } = useUserData()
+
+  // Get SOL and USDC balances
+  const solBalance = balances.find(b => b.currency === 'SOL')
+  const usdcBalance = balances.find(b => b.currency === 'USDC')
+  
+  // Debug logging
+  console.log('[Payments] All balances:', balances)
+  console.log('[Payments] SOL balance:', solBalance)
+  console.log('[Payments] USDC balance:', usdcBalance)
+  
+  // For display purposes, show USDC as the primary balance
+  // In the future, you can add SOL price conversion to show total USD value
+  const displayBalance = usdcBalance?.amount || 0
+
+  // Fetch transactions
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      if (!userData?.accountAddress) return
+      
+      try {
+        setLoadingTransactions(true)
+        const response = await fetch('/api/transactions')
+        const result = await response.json()
+        
+        console.log('[Payments] Raw API response:', result)
+        
+        if (result.success && result.data?.success && result.data?.data) {
+          // Transform Grid's transfer data to our Transaction format
+          const gridTransfers = result.data.data
+          console.log('[Payments] Grid transfers:', gridTransfers)
+          
+          const transformedTransactions: Transaction[] = gridTransfers.map((transfer: any) => {
+            const splData = transfer.Spl
+            
+            // Determine direction based on user's account
+            const isOutgoing = splData.from_address === userData?.accountAddress || 
+                               splData.main_account_address === userData?.accountAddress
+            
+            // Get counterparty address (the "other" party)
+            const counterparty = isOutgoing ? splData.to_address : splData.from_address
+            
+            // Format time
+            const createdDate = new Date(splData.created_at)
+            const now = new Date()
+            const diffMs = now.getTime() - createdDate.getTime()
+            const diffMins = Math.floor(diffMs / 60000)
+            const diffHours = Math.floor(diffMs / 3600000)
+            const diffDays = Math.floor(diffMs / 86400000)
+            
+            let timeStr = ''
+            if (diffMins < 1) timeStr = 'Just now'
+            else if (diffMins < 60) timeStr = `${diffMins}m ago`
+            else if (diffHours < 24) timeStr = `${diffHours}h ago`
+            else timeStr = `${diffDays}d ago`
+            
+            // Get currency symbol from mint
+            let currency = 'USDC'
+            if (splData.mint === 'So11111111111111111111111111111111111111112') {
+              currency = 'SOL'
+            }
+            
+            return {
+              id: splData.id,
+              signature: splData.signature,
+              direction: isOutgoing ? 'out' : 'in',
+              counterparty: `${counterparty.slice(0, 4)}...${counterparty.slice(-4)}`,
+              amount: splData.ui_amount, // Use the decimal amount
+              currency,
+              descriptor: `${currency} Transfer`,
+              time: timeStr,
+              timestamp: splData.created_at,
+              status: splData.confirmation_status === 'confirmed' ? 'Completed' : 'Pending',
+              type: 'transfer',
+              rawAmount: parseFloat(splData.amount)
+            }
+          })
+          
+          console.log('[Payments] Transformed transactions:', transformedTransactions.length)
+          setTransactions(transformedTransactions)
+        }
+      } catch (error) {
+        console.error('[Payments] Error fetching transactions:', error)
+      } finally {
+        setLoadingTransactions(false)
+      }
+    }
+
+    fetchTransactions()
+  }, [userData?.accountAddress])
+
+  // Refresh transactions after successful send
+  const handleTransactionSuccess = () => {
+    refreshBalance()
+    // Refetch transactions
+    fetch('/api/transactions')
+      .then(res => res.json())
+      .then(result => {
+        if (result.success && result.data?.success && result.data?.data) {
+          const gridTransfers = result.data.data
+          
+          const transformedTransactions: Transaction[] = gridTransfers.map((transfer: any) => {
+            const splData = transfer.Spl
+            const isOutgoing = splData.from_address === userData?.accountAddress || 
+                               splData.main_account_address === userData?.accountAddress
+            const counterparty = isOutgoing ? splData.to_address : splData.from_address
+            
+            const createdDate = new Date(splData.created_at)
+            const now = new Date()
+            const diffMs = now.getTime() - createdDate.getTime()
+            const diffMins = Math.floor(diffMs / 60000)
+            const diffHours = Math.floor(diffMs / 3600000)
+            const diffDays = Math.floor(diffMs / 86400000)
+            
+            let timeStr = ''
+            if (diffMins < 1) timeStr = 'Just now'
+            else if (diffMins < 60) timeStr = `${diffMins}m ago`
+            else if (diffHours < 24) timeStr = `${diffHours}h ago`
+            else timeStr = `${diffDays}d ago`
+            
+            let currency = 'USDC'
+            if (splData.mint === 'So11111111111111111111111111111111111111112') {
+              currency = 'SOL'
+            }
+            
+            return {
+              id: splData.id,
+              signature: splData.signature,
+              direction: isOutgoing ? 'out' : 'in',
+              counterparty: `${counterparty.slice(0, 4)}...${counterparty.slice(-4)}`,
+              amount: splData.ui_amount,
+              currency,
+              descriptor: `${currency} Transfer`,
+              time: timeStr,
+              timestamp: splData.created_at,
+              status: splData.confirmation_status === 'confirmed' ? 'Completed' : 'Pending',
+              type: 'transfer',
+              rawAmount: parseFloat(splData.amount)
+            }
+          })
+          
+          setTransactions(transformedTransactions)
+        }
+      })
+      .catch(err => console.error('Error refreshing transactions:', err))
+  }
+
+  const handleQuickAction = (actionId: string) => {
+    if (actionId === "send") {
+      setSendModalOpen(true)
+    } else if (actionId === "deposit") {
+      setDepositModalOpen(true)
+    }
+    // Handle other actions here
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* App Bar */}
-      <AppBar />
-
-      {/* Modern Sidebar */}
-      <ModernSidebar
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-      />
-
-      {/* Main Content */}
-      <main
-        className={cn(
-          "min-h-screen pt-24 px-8 pb-8 space-y-8 transition-all duration-300",
-          sidebarCollapsed ? "ml-16" : "ml-72"
-        )}
-      >
+    <div className="space-y-8">
         <div className="flex flex-col gap-2">
           <h1 className="text-3xl font-bold text-slate-900">Payments & Treasury</h1>
           <p className="text-slate-600">Manage USDC liquidity, pay teams, and monitor programmable payouts.</p>
@@ -116,9 +244,26 @@ export function Payments() {
             <div className="relative z-10 flex flex-col gap-8 p-8 md:p-10">
               <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-500">Overall Balance</p>
-                  <h2 className="mt-4 text-5xl font-semibold text-slate-900">$128,450.12</h2>
-                  <p className="mt-2 text-sm text-slate-600">Balance on Solana (USDC)</p>
+                  <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-500">Your Wallet</p>
+                  <h2 className="mt-4 text-5xl font-semibold text-slate-900">
+                    {loading ? '...' : `$${displayBalance.toFixed(2)}`}
+                  </h2>
+                  <p className="mt-2 text-sm text-slate-600">USDC on Solana</p>
+                  
+                  {/* Show all balances as badges */}
+                  {!loading && balances.length > 0 && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {balances.map((bal, idx) => (
+                        <Badge 
+                          key={idx} 
+                          variant={bal.currency === 'USDC' ? 'default' : 'outline'}
+                          className={bal.currency === 'SOL' ? 'bg-purple-50 text-purple-700 border-purple-200' : ''}
+                        >
+                          {bal.amount.toFixed(bal.currency === 'SOL' ? 4 : 2)} {bal.currency}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
@@ -176,6 +321,27 @@ export function Payments() {
           </div>
         </section>
 
+                {/* Send Modal */}
+        {sendModalOpen && (
+          <SendModal
+            isOpen={sendModalOpen}
+            onClose={() => setSendModalOpen(false)}
+            accountAddress={userData?.accountAddress || ""}
+            solBalance={solBalance?.amount || 0}
+            usdcBalance={usdcBalance?.amount || 0}
+            onTransactionSuccess={handleTransactionSuccess}
+          />
+        )}
+
+        {/* Deposit Modal */}
+        {depositModalOpen && (
+          <DepositModal
+            isOpen={depositModalOpen}
+            onClose={() => setDepositModalOpen(false)}
+            accountAddress={userData?.accountAddress || ""}
+          />
+        )}
+
         {/* Quick Actions */}
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {quickActions.map((action) => {
@@ -183,6 +349,7 @@ export function Payments() {
             return (
               <button
                 key={action.id}
+                onClick={() => handleQuickAction(action.id)}
                 className="group flex flex-col gap-4 rounded-2xl border border-white/60 bg-white/75 p-6 text-left shadow transition hover:-translate-y-1 hover:border-sky-200 hover:shadow-lg"
               >
                 <div className="flex items-center justify-between">
@@ -214,49 +381,62 @@ export function Payments() {
             </div>
 
             <div className="mt-6 space-y-4">
-              {recentTransfers.map((transfer) => (
-                <div
-                  key={transfer.id}
-                  className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200/60 bg-white/70 p-4 shadow-sm"
-                >
-                  <div className="flex items-center gap-4">
-                    <span
-                      className={cn(
-                        "inline-flex h-10 w-10 items-center justify-center rounded-full",
-                        transfer.direction === "in" ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-600"
-                      )}
-                    >
-                      {transfer.direction === "in" ? <ArrowDownLeft className="h-5 w-5" /> : <Send className="h-5 w-5" />}
-                    </span>
-                    <div>
-                      <p className="font-medium text-slate-900">{transfer.counterparty}</p>
-                      <p className="text-sm text-slate-500">{transfer.descriptor}</p>
+              {loadingTransactions ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-sm text-slate-500">Loading transactions...</div>
+                </div>
+              ) : transactions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <Send className="h-12 w-12 text-slate-300 mb-3" />
+                  <p className="text-sm font-medium text-slate-600">No transactions yet</p>
+                  <p className="text-xs text-slate-500 mt-1">Your transaction history will appear here</p>
+                </div>
+              ) : (
+                transactions.slice(0, 5).map((transfer) => (
+                  <div
+                    key={transfer.id}
+                    className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200/60 bg-white/70 p-4 shadow-sm"
+                  >
+                    <div className="flex items-center gap-4">
+                      <span
+                        className={cn(
+                          "inline-flex h-10 w-10 items-center justify-center rounded-full",
+                          transfer.direction === "in" ? "bg-emerald-100 text-emerald-600" : "bg-red-100 text-red-600"
+                        )}
+                      >
+                        {transfer.direction === "in" ? <ArrowDownLeft className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
+                      </span>
+                      <div>
+                        <p className="font-medium text-slate-900">{transfer.descriptor}</p>
+                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                          <Clock className="h-3 w-3" />
+                          {transfer.time}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <p className={cn(
-                      "font-semibold",
-                      transfer.direction === "in" ? "text-emerald-600" : "text-slate-700"
-                    )}>
-                      ${transfer.amount}
-                    </p>
-                    <div className="flex items-center justify-end gap-2 text-xs text-slate-500">
-                      <Clock className="h-3 w-3" />
-                      {transfer.time}
+                    <div className="text-right">
+                      <p className={cn(
+                        "text-lg font-semibold",
+                        transfer.direction === "in" ? "text-emerald-600" : "text-red-600"
+                      )}>
+                        {transfer.direction === "in" ? "+" : "-"}{transfer.currency === 'SOL' ? '' : '$'}{transfer.amount}
+                      </p>
                       <Badge
                         variant="secondary"
                         className={cn(
                           "border-none bg-slate-100 text-slate-600",
                           transfer.status === "Completed" && "bg-emerald-100 text-emerald-600",
-                          transfer.status === "Pending" && "bg-amber-100 text-amber-600"
+                          transfer.status === "completed" && "bg-emerald-100 text-emerald-600",
+                          transfer.status === "Pending" && "bg-amber-100 text-amber-600",
+                          transfer.status === "pending" && "bg-amber-100 text-amber-600"
                         )}
                       >
                         {transfer.status}
                       </Badge>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
 
@@ -287,7 +467,6 @@ export function Payments() {
             </div>
           </div>
         </section>
-      </main>
     </div>
   )
 }

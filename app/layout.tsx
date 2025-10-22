@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Analytics } from '@vercel/analytics/next'
 import { PrivyProvider } from '@privy-io/react-auth'
 import { Toaster } from '@/components/ui/toaster'
+import { RootLayout } from '@/components/root-layout'
 import './globals.css'
 
 const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://corridorfi.xyz'
@@ -40,7 +41,7 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default function Layout({
   children,
 }: Readonly<{
   children: React.ReactNode
@@ -48,7 +49,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans">
-        {children}
+        <RootLayout>
+          {children}
+        </RootLayout>
         <Toaster />
         <Analytics />
       </body>

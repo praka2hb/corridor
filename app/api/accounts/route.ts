@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { gridClient, GridError } from "@/lib/grid-client"
+import { initiateAuth } from '@/lib/services/auth-service';
 
 // GET /api/accounts - List all accounts or get current user accounts
 export async function GET(request: NextRequest) {
@@ -15,6 +15,12 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // TODO: Implement account listing functionality
+    return NextResponse.json(
+      { success: false, error: 'Not implemented' },
+      { status: 501 }
+    );
   } catch (error) {
     console.error('Error fetching accounts:', error);
     return NextResponse.json(
@@ -24,14 +30,13 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/accounts - Create a new account
+// POST /api/accounts - Create a new account or authenticate existing user
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-
-    // Validate required fields
     const { email } = body;
 
+    // Validate required fields
     if (!email) {
       return NextResponse.json(
         { success: false, error: 'Email is required' },
@@ -39,47 +44,62 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = await gridClient.createAccount({
-      email
-    })
+    // Use auth-service to handle authentication logic
+    const authResult = await initiateAuth(email);
 
-    console.log(user);
-    console.log('Grid pre-auth userId:', (user as any)?.id ?? (user as any)?.gridId);
-
-    const sessionSecrets = await gridClient.generateSessionSecrets();
-    console.log('Session secrets generated - these contain private keys needed for signing!');
-
-    if (!user) {
+    if (!authResult.success) {
       return NextResponse.json(
-        { success: false, error: 'Failed to generate OTP' },
+        { success: false, error: authResult.error || 'Failed to start authentication' },
         { status: 500 }
       );
     }
 
+    const isExistingUser = authResult.authFlow === 'login';
+
     const response = NextResponse.json(
-      { success: true, message: 'OTP sent to email for verification', user },
+      { 
+        success: true, 
+        message: 'OTP sent to email for verification', 
+        authFlow: authResult.authFlow,
+        email: authResult.email,
+        provider: authResult.provider,
+        type: authResult.type,
+        isExistingUser 
+      },
       { status: 201 }
     );
 
-    // Store session secrets securely in an HttpOnly cookie (5 min)
+    // Store userData from createAccount (required for completeAuthAndCreateAccount)
+    if (authResult.userData) {
+      console.log('[API] 💾 Storing user data in cookie for OTP verification');
+      response.cookies.set({
+        name: 'grid_user_data',
+        value: JSON.stringify(authResult.userData),
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 5, // 5 minutes
+      });
+    }
+
+    // Store auth flow to determine which completion method to use
     response.cookies.set({
-      name: 'grid_session_secrets',
-      value: JSON.stringify(sessionSecrets),
+      name: 'grid_auth_flow',
+      value: authResult.authFlow,
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 5,
+      maxAge: 60 * 5, // 5 minutes
     });
 
     return response;
-  } catch (error) {
-    console.error('Error creating account:', error);
+  } catch (error: any) {
+    console.error('[API] Error in authentication flow:', error);
     
-
-
     return NextResponse.json(
-      { success: false, error: 'Failed to create account' },
+      { success: false, error: error?.message || 'Failed to start authentication. Please try again.' },
       { status: 500 }
     );
   }

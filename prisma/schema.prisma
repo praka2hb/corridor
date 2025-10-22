@@ -1,15 +1,272 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
-generator client {
+ generator client {
   provider = "prisma-client-js"
-  output   = "../lib/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id              String   @id @default(cuid())
+  name            String
+  gridOrgId       String?  @unique // Future: Grid organization ID (for multi-org features)
+  
+  // Treasury Multisig Account
+  treasuryAccountId     String?  // Multisig's Solana address (from Grid response: data.address)
+  treasuryGridId        String?  // Grid account ID (if different from treasuryAccountId)
+  treasuryGridUserId    String?  // Grid user ID for the multisig (from Grid response: data.grid_user_id)
+  treasurySignerAddress String?  // Signer's Solana address (from Grid response: data.policies.signers[0].address)
+  treasuryStatus        String   @default("active") // 'active' | 'suspended'
+  
+  // Virtual Account (ACH)
+  virtualAccountId      String?  // Grid virtual account ID
+  bankAccountNumber     String?  // For deposits
+  bankRoutingNumber     String?  // For deposits
+  bankBeneficiaryName   String?  // Account holder name
+  bankName              String?  // Bank institution name
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  members         OrganizationMember[]
+  invitations     OrganizationInvitation[]
+  teams           Team[]
+  employees       EmployeeProfile[]
+  ledger          LedgerTransaction[]
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  gridUserId  String?  @unique
+  username    String?  @unique
+  publicKey   String?  @unique
+  kycId       String?  // Grid KYC verification ID
+  kycType     String?  // 'individual' | 'business'
+  kycStatus   String?  // 'pending' | 'approved' | 'rejected' (not enforced in dev)
+  kycVerificationLevel String? // Verification tier achieved from Grid
+  kycLink     String?  // Grid KYC verification link (stored for user to resume if needed)
+  kycLinkExpiresAt DateTime? // When the KYC link expires
+  kycRejectionReasons String?  // JSON array of rejection reasons from Grid
+  kycContinuationLink String?  // Link to continue incomplete KYC verification
+  
+  // Grid session secrets (encrypted)
+  encryptedSessionSecrets String? // Encrypted session secrets for Grid MPC signing
+  sessionSecretsIV        String? // Initialization vector for decryption
+  sessionSecretsAuthTag   String? // Authentication tag for GCM
+  
+  // Grid authentication session (encrypted)
+  encryptedAuthSession    String? // Encrypted authentication session from Grid
+  authSessionIV           String? // Initialization vector for auth session
+  authSessionAuthTag      String? // Authentication tag for auth session
+  
+  lastLoginAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  organizations   OrganizationMember[]
+}
+
+model OrganizationMember {
+  id                String   @id @default(cuid())
+  userId            String
+  organizationId    String
+  role              String   @default("member") // 'owner' | 'admin' | 'member'
+  position          String?  // 'CFO', 'Manager', etc.
+  canManageTreasury Boolean  @default(false)  // Permission flag
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([userId])
+  @@index([organizationId])
+}
+
+model OrganizationInvitation {
+  id             String   @id @default(cuid())
+  organizationId String
+  email          String
+  invitedBy      String   // User ID who sent invite
+  role           String   @default("member") // 'owner' | 'admin' | 'member'
+  position       String?  // 'CFO', 'Manager', etc.
+  status         String   @default("pending") // 'pending' | 'accepted' | 'expired'
+  token          String   @unique // Unique token for acceptance
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([email])
+  @@index([token])
+}
+
+model Team {
+  id                      String   @id @default(cuid())
+  orgId                   String
+  name                    String
+  description             String?
+  status                  String   @default("active") // 'active' | 'archived'
+  defaultCadence          String?  // 'monthly' | 'biweekly' | 'weekly'
+  defaultInvestmentPercent Float?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  members         TeamMember[]
+  streams         PayrollStream[]
+  ledger          LedgerTransaction[]
+}
+
+model TeamMember {
+  id         String   @id @default(cuid())
+  teamId     String
+  employeeId String
+  role       String   @default("member") // 'member' | 'lead'
+  createdAt  DateTime @default(now())
+
+  team     Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  employee EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, employeeId])
+}
+
+model EmployeeProfile {
+  id                   String   @id @default(cuid())
+  orgId                String
+  userId               String?  // Optional: for linked internal users
+  name                 String
+  email                String?
+  gridPaymentAccountId String?
+  payoutWallet         String?  // Solana wallet address
+  kycStatus            String?  // 'pending' | 'approved' | 'rejected' (not enforced in dev)
+  status               String   @default("active") // 'active' | 'paused' | 'terminated'
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  organization        Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  teamMemberships     TeamMember[]
+  streams             PayrollStream[]
+  investmentPrefs     InvestmentPreference[]
+  positions           EmployeePosition[]
+  ledger              LedgerTransaction[]
+}
+
+model PayrollStream {
+  id             String   @id @default(cuid())
+  employeeId     String
+  teamId         String?
+  amountMonthly  Float
+  currency       String   @default("USDC")
+  cadence        String   // 'monthly' | 'biweekly' | 'weekly'
+  status         String   @default("active") // 'active' | 'paused' | 'stopped'
+  nextRunAt      DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  employee EmployeeProfile  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  team     Team?            @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  runs     StreamRun[]
+}
+
+model StreamRun {
+  id         String   @id @default(cuid())
+  streamId   String
+  runAt      DateTime
+  status     String   // 'pending' | 'completed' | 'failed'
+  transferId String?
+  error      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  stream PayrollStream @relation(fields: [streamId], references: [id], onDelete: Cascade)
+}
+
+model InvestmentPreference {
+  id                   String  @id @default(cuid())
+  employeeId           String  @unique
+  percentToInvestment  Float   @default(0) // 0-100
+  investmentAccountId  String?
+  externalWallet       String?
+  strategyId           String? // Kamino strategy ID (optional)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  employee EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model InvestmentStrategy {
+  id          String   @id @default(cuid())
+  provider    String   // 'kamino' | 'other'
+  strategyId  String   @unique
+  symbol      String
+  asset       String   @default("USDC")
+  apy         Float?
+  riskLabel   String?
+  status      String   @default("active") // 'active' | 'inactive'
+  allowlisted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model EmployeePosition {
+  id                String   @id @default(cuid())
+  employeeId        String
+  provider          String   // 'kamino' | 'other'
+  strategyId        String
+  receiptTokenMint  String?
+  positionId        String?
+  shares            Float    @default(0)
+  lastNav           Float?
+  // Kamino Lend specific fields
+  depositShares     Float    @default(0)  // cToken balance for Kamino Lend
+  depositValue      Float    @default(0)  // USD value of deposits
+  lastSyncedAt      DateTime?             // Last on-chain sync timestamp
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  employee EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, provider, strategyId])
+}
+
+model ProviderLedger {
+  id         String   @id @default(cuid())
+  employeeId String
+  provider   String   // 'kamino' | 'other'
+  type       String   // 'stake' | 'unstake'
+  strategyId String
+  amount     Float
+  txSig      String?
+  status     String   // 'pending' | 'completed' | 'failed'
+  error      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model LedgerTransaction {
+  id             String   @id @default(cuid())
+  orgId          String
+  teamId         String?
+  employeeId     String?
+  type           String   // 'payroll' | 'investment' | 'fund' | 'withdraw'
+  gridTransferId String?
+  amount         Float
+  currency       String   @default("USDC")
+  status         String   // 'pending' | 'completed' | 'failed'
+  metadata       String?  // JSON string
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  team         Team?            @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  employee     EmployeeProfile? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
 }
