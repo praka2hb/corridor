@@ -36,8 +36,10 @@ async function main() {
       id: 'demo-org',
       name: 'Demo Organization',
       gridOrgId: null,
+      // Note: This demo org does not have a treasury account
+      // Real organizations should have treasury created via /api/organization/create
       treasuryAccountId: null,
-      treasuryStatus: 'active',
+      treasuryStatus: 'pending', // Changed from 'active' to 'pending'
     },
   });
 

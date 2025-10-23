@@ -90,7 +90,7 @@ export function encryptSessionSecrets(sessionSecrets: SessionSecrets): Encrypted
  * Decrypt session secrets
  * 
  * @param encryptedData - Encrypted session data
- * @returns Decrypted session secrets (as-is from Grid, with publicKey/privateKey strings)
+ * @returns Decrypted session secrets (with proper Uint8Array restoration for privateKey)
  */
 export function decryptSessionSecrets(encryptedData: EncryptedSessionData): SessionSecrets {
   try {
@@ -110,8 +110,46 @@ export function decryptSessionSecrets(encryptedData: EncryptedSessionData): Sess
       decipher.final()
     ]);
     
-    // Parse JSON - Grid's session secrets are just {publicKey, privateKey, provider, tag}
-    return JSON.parse(decrypted.toString('utf8'));
+    // Parse JSON
+    const parsed = JSON.parse(decrypted.toString('utf8'));
+    
+    console.log('[Encryption] Decrypted session secrets - restoring Uint8Arrays...');
+    
+    // Restore Uint8Array for privateKey fields if they were serialized as objects
+    // Grid session secrets contain keypairs where privateKey should be Uint8Array
+    if (Array.isArray(parsed)) {
+      const restored = parsed.map((secret: any, idx: number) => {
+        if (secret.privateKey && typeof secret.privateKey === 'object' && !(secret.privateKey instanceof Uint8Array)) {
+          console.log(`[Encryption] Restoring privateKey for secret ${idx} (provider: ${secret.provider})`);
+          
+          // Check if it's an array-like object {0: x, 1: y, ...}
+          const isArrayLike = Object.keys(secret.privateKey).every((k) => !isNaN(Number(k)));
+          
+          if (isArrayLike) {
+            // Convert object representation back to Uint8Array
+            const privateKeyArray = Object.values(secret.privateKey) as number[];
+            const restored = {
+              ...secret,
+              privateKey: new Uint8Array(privateKeyArray)
+            };
+            console.log(`[Encryption] ✅ Restored privateKey as Uint8Array (length: ${restored.privateKey.length})`);
+            return restored;
+          }
+        }
+        
+        // Check if privateKey is already Uint8Array
+        if (secret.privateKey instanceof Uint8Array) {
+          console.log(`[Encryption] ✅ Secret ${idx} privateKey already Uint8Array`);
+        }
+        
+        return secret;
+      });
+      
+      console.log('[Encryption] Session secrets restoration complete');
+      return restored;
+    }
+    
+    return parsed;
   } catch (error: any) {
     console.error('[Encryption] Failed to decrypt session secrets:', error.message);
     throw new Error('Failed to decrypt session secrets. Session may be corrupted or key changed.');

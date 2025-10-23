@@ -39,10 +39,22 @@ export default function NewOrganizationPage() {
   const [requestingKyc, setRequestingKyc] = useState(false)
 
   useEffect(() => {
-    checkKycStatus()
+    // COMMENTED OUT FOR TESTING - Skip KYC verification check
+    // checkKycStatus()
+    
+    // Set default state to allow organization creation without KYC
+    setKycCheck({
+      success: true,
+      state: 'approved',
+      canCreateOrg: true,
+      message: 'Ready to create organization',
+    })
+    setCheckingKyc(false)
   }, [])
 
   const checkKycStatus = async () => {
+    // COMMENTED OUT FOR TESTING - Skip KYC verification
+    /*
     setCheckingKyc(true)
     setError("")
 
@@ -64,6 +76,7 @@ export default function NewOrganizationPage() {
     } finally {
       setCheckingKyc(false)
     }
+    */
   }
 
   const handleRequestKyc = async () => {

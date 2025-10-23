@@ -3,6 +3,7 @@
 
  generator client {
   provider = "prisma-client-js"
+  log      = ["error"]
 }
 
 datasource db {
@@ -68,7 +69,10 @@ model User {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  organizations   OrganizationMember[]
+  // Relations
+  organizations            OrganizationMember[]
+  accountUpdateSigners     AccountUpdateSigner[] @relation("AccountUpdateSigners")
+  initiatedUpdateRequests  AccountUpdateRequest[] @relation("InitiatedRequests")
 }
 
 model OrganizationMember {
@@ -269,4 +273,71 @@ model LedgerTransaction {
   organization Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
   team         Team?            @relation(fields: [teamId], references: [id], onDelete: SetNull)
   employee     EmployeeProfile? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+}
+
+// Multisig Account Update Request
+model AccountUpdateRequest {
+  id                    String   @id @default(cuid())
+  orgId                 String
+  initiatedByUserId     String   // User who initiated the request
+  accountAddress        String   // Multisig account address
+  requestedSignersJson  String   // JSON array of requested signer addresses
+  threshold             Int?     // New threshold (optional if not changing)
+  gridTransaction       String?  // Grid transaction payload (JSON/string)
+  status                String   @default("pending") // 'pending' | 'collecting' | 'ready' | 'sent' | 'confirmed' | 'failed'
+  error                 String?  // Error message if failed
+  
+  // Pending organization member addition (added after blockchain confirmation)
+  pendingUserId         String?  // User to add to organization after confirmation
+  pendingUserEmail      String?  // Email of user to add
+  pendingUserRole       String?  // Role to assign (member, admin, etc.)
+  pendingUserPosition   String?  // Position/title in organization
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Relations
+  initiatedBy           User     @relation("InitiatedRequests", fields: [initiatedByUserId], references: [id], onDelete: Cascade)
+  signers               AccountUpdateSigner[]
+  
+  @@index([orgId])
+  @@index([accountAddress])
+  @@index([status])
+  @@index([initiatedByUserId])
+}
+
+// Individual signer approval for account update
+model AccountUpdateSigner {
+  id                   String   @id @default(cuid())
+  requestId            String
+  signerUserId         String   // User ID of the signer
+  signerAddress        String   // Solana address of the signer
+  hasSigned            Boolean  @default(false)
+  signedAt             DateTime?
+  signaturePayloadJson String?  // JSON of signature metadata (not private keys)
+  error                String?  // Error message if signing failed
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  request              AccountUpdateRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  signer               User                 @relation("AccountUpdateSigners", fields: [signerUserId], references: [id], onDelete: Cascade)
+  
+  @@unique([requestId, signerUserId])
+  @@index([requestId])
+  @@index([signerUserId])
+}
+
+// In-app notifications
+model Notification {
+  id           String    @id @default(cuid())
+  userId       String
+  type         String    // 'signer_action_required' | 'request_ready' | 'request_confirmed' | etc.
+  title        String
+  body         String
+  metadataJson String?   // JSON metadata (e.g., requestId, orgId)
+  readAt       DateTime?
+  createdAt    DateTime  @default(now())
+  
+  @@index([userId])
+  @@index([createdAt])
 }

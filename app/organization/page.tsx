@@ -142,6 +142,8 @@ export default function OrganizationPage() {
   };
 
   const handleCreateOrganization = () => {
+    // COMMENTED OUT FOR TESTING - Skip KYC verification check
+    // Just redirect to organization creation page
     router.push("/organization/new");
   };
 
@@ -176,80 +178,6 @@ export default function OrganizationPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* KYC Status Banner - Show appropriate message based on status */}
-        {kycStatus && kycStatus.kycStatus === 'pending' && (
-          <div className="mb-6 bg-amber-50 border-l-4 border-amber-400 p-4 rounded-md">
-            <div className="flex items-start">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3 flex-1">
-                <h3 className="text-sm font-medium text-amber-800">
-                  ⏳ Verification In Progress
-                </h3>
-                <div className="mt-2 text-sm text-amber-700">
-                  <p className="mb-2">Your {kycStatus.kycType === 'business' ? 'business' : 'individual'} verification is being processed. You'll be able to create organizations once approved.</p>
-                  <button
-                    onClick={handleRefreshKycStatus}
-                    disabled={refreshingStatus}
-                    className="inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 transition-colors text-sm disabled:opacity-50"
-                  >
-                    {refreshingStatus ? (
-                      <>
-                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span className="ml-2">Checking...</span>
-                      </>
-                    ) : (
-                      <>
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        <span className="ml-2">Check Status</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {/* Resume incomplete verification */}
-        {kycStatus && kycStatus.kycLink && kycStatus.kycStatus !== 'pending' && kycStatus.kycStatus !== 'approved' && (
-          <div className="mb-6 bg-blue-50 border-l-4 border-blue-400 p-4 rounded-md">
-            <div className="flex items-start">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3 flex-1">
-                <h3 className="text-sm font-medium text-blue-800">
-                  Complete Your {kycStatus.kycType === 'business' ? 'Business' : 'Individual'} Verification
-                </h3>
-                <div className="mt-2 text-sm text-blue-700">
-                  <p className="mb-2">You started {kycStatus.kycType === 'business' ? 'business' : 'individual'} verification but didn't finish. Complete it to create organizations.</p>
-                  <a
-                    href={kycStatus.kycLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
-                  >
-                    Resume Verification
-                    <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
         
         <div className="mb-8">
           <div className="flex justify-between items-center">
