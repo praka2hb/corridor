@@ -1,6 +1,7 @@
 "use client"
 
 import Image from "next/image"
+import Link from "next/link"
 
 export function Hero() {
   return (
@@ -16,14 +17,14 @@ export function Hero() {
             }
           </p>
           <div className="mt-8 flex justify-center">
-            <button className="group relative px-6 py-2.5 text-sm font-semibold border-2 border-foreground rounded-full transition-all duration-300 hover:scale-105 active:scale-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100">
+            <Link href="/auth" className="group relative px-6 py-2.5 text-sm font-semibold border-2 border-foreground rounded-full transition-all duration-300 hover:scale-105 active:scale-100">
               <span className="flex items-center gap-2 text-foreground group-hover:bg-gradient-to-r group-hover:from-[#0f44e1] group-hover:via-[#174ef0] group-hover:to-[#3b82f6] group-hover:bg-clip-text group-hover:text-transparent transition-all duration-300">
-                {"Launching Soon"}
+                {"Get Started"}
                 <svg className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1 group-hover:stroke-[#0f44e1]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
               </span>
-            </button>
+            </Link>
           </div>
         </div>
         {/* Visual mockup area */}
