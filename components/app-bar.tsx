@@ -4,8 +4,22 @@ import Image from "next/image"
 import { Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useUserData } from "@/hooks/use-user-data"
 
 export function AppBar() {
+  const { userData } = useUserData()
+  
+  // Get user's initial(s) - first letter of username or email
+  const getUserInitials = () => {
+    if (userData?.username) {
+      return userData.username.charAt(0).toUpperCase()
+    }
+    if (userData?.email) {
+      return userData.email.charAt(0).toUpperCase()
+    }
+    return 'U'
+  }
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur-md">
       <div className="flex h-16 items-center justify-between px-6">
@@ -34,7 +48,7 @@ export function AppBar() {
           <Avatar className="h-8 w-8">
             <AvatarImage src="/avatar.jpg" />
             <AvatarFallback className="bg-gradient-to-br from-[#0f44e1] to-[#174ef0] text-xs font-medium text-white">
-              JD
+              {getUserInitials()}
             </AvatarFallback>
           </Avatar>
         </div>

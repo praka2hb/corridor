@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/services/jwt-service';
 import { verifySessionSecrets } from '@/lib/services/database-service';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/verify-session-secrets

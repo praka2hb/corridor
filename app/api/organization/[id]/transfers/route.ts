@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/services/jwt-service'
 import { db } from '@/lib/db'
-import { gridClient } from '@/lib/grid-client'
+import { SDKGridClient } from '@/lib/grid/sdkClient'
 
 export async function GET(
   request: NextRequest,
@@ -17,6 +17,7 @@ export async function GET(
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
+    const type = searchParams.get('type') // 'payroll' or null
 
     // Check if user is a member of this organization
     const member = await db.organizationMember.findUnique({
@@ -40,18 +41,19 @@ export async function GET(
 
     const organization = member.organization
 
-    if (!organization.treasuryAccountId) {
+    if (!organization.creatorAccountAddress) {
       return NextResponse.json(
-        { error: 'Organization does not have a treasury account' },
+        { error: 'Organization does not have an account address' },
         { status: 404 }
       )
     }
 
     // Fetch transfers from Grid SDK
-    console.log('[Transfers API] Fetching transfers for:', organization.treasuryAccountId)
+    console.log('[Transfers API] Fetching transfers for:', organization.creatorAccountAddress)
     
+    const gridClient = SDKGridClient.getInstance()
     const transfersResponse = await gridClient.getTransfers(
-      organization.treasuryAccountId
+      organization.creatorAccountAddress
     )
 
     console.log('[Transfers API] Transfers response:', transfersResponse)
@@ -71,10 +73,64 @@ export async function GET(
       metadata: transfer.metadata,
     }))
 
+    // Filter transfers if type is specified
+    let filteredTransfers = allTransfers
+    if (type === 'payroll') {
+      // Get all payroll stream IDs for this organization
+      const payrollStreams = await db.payrollStream.findMany({
+        where: {
+          employee: {
+            orgId: organizationId,
+          },
+        },
+        select: {
+          id: true,
+          gridStandingOrderId: true,
+          employee: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+        },
+      })
+
+      // Create a map of Grid standing order IDs to employee info
+      const payrollMap = new Map()
+      payrollStreams.forEach(stream => {
+        payrollMap.set(stream.gridStandingOrderId, {
+          employeeName: stream.employee.name,
+          employeeEmail: stream.employee.email,
+        })
+      })
+
+      // Filter transfers that are related to payroll streams
+      filteredTransfers = allTransfers.filter((transfer: any) => {
+        // Check if transfer is related to any payroll stream
+        return payrollStreams.some(stream => 
+          transfer.signature?.includes(stream.gridStandingOrderId) ||
+          transfer.metadata?.standingOrderId === stream.gridStandingOrderId
+        )
+      }).map((transfer: any) => {
+        // Add employee information to payroll transfers
+        const payrollStream = payrollStreams.find(stream => 
+          transfer.signature?.includes(stream.gridStandingOrderId) ||
+          transfer.metadata?.standingOrderId === stream.gridStandingOrderId
+        )
+        
+        return {
+          ...transfer,
+          employeeName: payrollStream?.employee.name,
+          employeeEmail: payrollStream?.employee.email,
+          isPayrollTransfer: true,
+        }
+      })
+    }
+
     // Manual pagination
     const startIndex = (page - 1) * limit
     const endIndex = startIndex + limit
-    const transfers = allTransfers.slice(startIndex, endIndex)
+    const transfers = filteredTransfers.slice(startIndex, endIndex)
 
     return NextResponse.json({
       success: true,
@@ -82,8 +138,8 @@ export async function GET(
       pagination: {
         page,
         limit,
-        total: allTransfers.length,
-        hasMore: endIndex < allTransfers.length,
+        total: filteredTransfers.length,
+        hasMore: endIndex < filteredTransfers.length,
       },
     })
   } catch (error: any) {

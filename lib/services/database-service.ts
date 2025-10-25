@@ -32,8 +32,7 @@ export interface UserWithOrg {
     organization: {
       id: string;
       name: string;
-      gridOrgId: string | null;
-      treasuryAccountId: string | null;
+      creatorAccountAddress: string | null;
     };
   }[];
 }
@@ -139,12 +138,19 @@ export async function updateLastLogin(userId: string): Promise<void> {
 
 /**
  * Create a new organization
+ * Note: This function is deprecated. Organization creation is now handled directly
+ * in the /api/organization/create route with proper Grid account address.
  */
-export async function createOrganization(name: string, creatorUserId: string): Promise<any> {
+export async function createOrganization(
+  name: string, 
+  creatorUserId: string,
+  creatorAccountAddress: string
+): Promise<any> {
   try {
     const org = await db.organization.create({
       data: {
         name,
+        creatorAccountAddress,
         members: {
           create: {
             userId: creatorUserId,
@@ -420,8 +426,9 @@ export async function verifySessionSecrets(
     console.log('[DatabaseService] Stored signers from session secrets:', storedSigners);
     
     // Get Grid account policies to compare signers
-    const { gridClient } = await import('../grid-client');
-    const accountResult = await gridClient.getAccount(gridAccountAddress);
+    const { SDKGridClient } = await import('../grid/sdkClient');
+    const client = SDKGridClient.getInstance();
+    const accountResult = await client.getAccount(gridAccountAddress);
     
     if (!accountResult.success || !accountResult.data) {
       return {

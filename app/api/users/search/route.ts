@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/services/jwt-service'
 import { db } from '@/lib/db'
 
+export const dynamic = 'force-dynamic';
+
 // GET - Search for users by email
 export async function GET(request: NextRequest) {
   try {

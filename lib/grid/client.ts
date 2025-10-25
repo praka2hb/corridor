@@ -197,3 +197,60 @@ export async function getTransactionStatus(accountAddress: string, transactionId
     throw error;
   }
 }
+
+/**
+ * Create a standing order (recurring payment)
+ * @param accountAddress - The account address
+ * @param standingOrderConfig - Standing order configuration matching Grid SDK CreateStandingOrderRequest
+ * @returns Grid standing order response
+ */
+export async function createStandingOrder(accountAddress: string, standingOrderConfig: import('@/lib/types/payroll').StandingOrderConfig) {
+  const client = SDKGridClient.getInstance();
+  try {
+    console.log('[Grid] Creating standing order for account:', accountAddress);
+    console.log('[Grid] Standing order config:', JSON.stringify(standingOrderConfig, null, 2));
+    const result = await client.createStandingOrder(accountAddress, standingOrderConfig);
+    console.log('[Grid] Standing order created successfully:', result);
+    return result;
+  } catch (error) {
+    console.error('[Grid] Failed to create standing order:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get all standing orders for an account
+ * @param accountAddress - The account address
+ * @returns Grid standing orders response
+ */
+export async function getStandingOrders(accountAddress: string) {
+  const client = SDKGridClient.getInstance();
+  try {
+    console.log('[Grid] Getting standing orders for account:', accountAddress);
+    const result = await client.getStandingOrders(accountAddress);
+    console.log('[Grid] Retrieved standing orders:', result?.data?.length || 0);
+    return result;
+  } catch (error) {
+    console.error('[Grid] Failed to get standing orders:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get a specific standing order
+ * @param accountAddress - The account address
+ * @param standingOrderId - The standing order ID
+ * @returns Grid standing order details
+ */
+export async function getStandingOrder(accountAddress: string, standingOrderId: string) {
+  const client = SDKGridClient.getInstance();
+  try {
+    console.log('[Grid] Getting standing order:', standingOrderId);
+    const result = await client.getStandingOrder(accountAddress, standingOrderId);
+    console.log('[Grid] Retrieved standing order details');
+    return result;
+  } catch (error) {
+    console.error('[Grid] Failed to get standing order:', error);
+    throw error;
+  }
+}

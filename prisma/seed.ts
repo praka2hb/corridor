@@ -35,11 +35,8 @@ async function main() {
     create: {
       id: 'demo-org',
       name: 'Demo Organization',
-      gridOrgId: null,
-      // Note: This demo org does not have a treasury account
-      // Real organizations should have treasury created via /api/organization/create
-      treasuryAccountId: null,
-      treasuryStatus: 'pending', // Changed from 'active' to 'pending'
+      // Demo placeholder address - real orgs should have actual creator's Grid account address
+      creatorAccountAddress: 'demo-placeholder-address',
     },
   });
 

@@ -75,20 +75,12 @@ export default function AuthPage() {
         throw new Error(data?.error || 'Incorrect OTP code. Please check and try again.')
       }
       
-      // Check if user has username
-      const userDataRes = await fetch('/api/user-data')
-      const userData = await userDataRes.json()
-      
-      if (userData.success && userData.user) {
-        if (!userData.user.username) {
-          // Show username modal only if username is not set
-          setShowUsernameModal(true)
-        } else {
-          // User already has username, redirect directly to home
-          router.push('/home')
-        }
+      // Check if user has username using the response from verify-otp
+      if (!data.hasUsername) {
+        // Show username modal only if username is not set
+        setShowUsernameModal(true)
       } else {
-        // If no user data, redirect to home anyway
+        // User already has username, redirect directly to home
         router.push('/home')
       }
     } catch (err: any) {

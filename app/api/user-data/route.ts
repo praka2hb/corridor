@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/services/jwt-service';
 import { gridService } from '@/lib/services/grid-service';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 // GET /api/user-data - Get current user data including username and balance
 export async function GET(request: NextRequest) {

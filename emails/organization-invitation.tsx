@@ -32,18 +32,36 @@ export default function OrganizationInvitation({
         <Container style={container}>
           <Heading style={h1}>You're Invited! 🎉</Heading>
           
+          <Text style={greeting}>
+            Hi there,
+          </Text>
+
           <Text style={text}>
             <strong>{inviterName}</strong> has invited you to join <strong>{organizationName}</strong> on Corridor.
           </Text>
 
-          {position && (
-            <Text style={text}>
-              Position: <strong>{position}</strong>
+          <Section style={detailsBox}>
+            <Text style={detailsTitle}>Invitation Details</Text>
+            <Hr style={divider} />
+            <Text style={detailRow}>
+              <span style={detailLabel}>Organization:</span> 
+              <span style={detailValue}>{organizationName}</span>
             </Text>
-          )}
+            <Text style={detailRow}>
+              <span style={detailLabel}>Role:</span> 
+              <span style={detailValue}>{role.charAt(0).toUpperCase() + role.slice(1)}</span>
+            </Text>
+            {position && (
+              <Text style={detailRow}>
+                <span style={detailLabel}>Position:</span> 
+                <span style={detailValue}>{position}</span>
+              </Text>
+            )}
+          </Section>
 
           <Text style={text}>
-            Role: <strong style={roleStyle}>{role.charAt(0).toUpperCase() + role.slice(1)}</strong>
+            Corridor is a modern platform for managing payroll, payments, and treasury operations. 
+            Accept this invitation to get started with your new role.
           </Text>
 
           <Section style={buttonContainer}>
@@ -55,14 +73,12 @@ export default function OrganizationInvitation({
           <Hr style={hr} />
 
           <Text style={footer}>
-            Or copy and paste this link into your browser:
+            This invitation will expire in 7 days. If you don't want to join this organization, 
+            you can safely ignore this email.
           </Text>
-          <Text style={linkText}>
-            {acceptLink}
-          </Text>
-
+          
           <Text style={footer}>
-            This invitation will expire in 7 days.
+            If you have any questions, please contact {inviterName} directly.
           </Text>
         </Container>
       </Body>
@@ -93,6 +109,14 @@ const h1 = {
   textAlign: 'center' as const,
 }
 
+const greeting = {
+  color: '#374151',
+  fontSize: '18px',
+  lineHeight: '24px',
+  margin: '16px 0',
+  padding: '0 48px',
+}
+
 const text = {
   color: '#374151',
   fontSize: '16px',
@@ -101,8 +125,42 @@ const text = {
   padding: '0 48px',
 }
 
-const roleStyle = {
-  color: '#2563eb',
+const detailsBox = {
+  backgroundColor: '#f9fafb',
+  borderRadius: '8px',
+  padding: '24px',
+  margin: '24px 48px',
+}
+
+const detailsTitle = {
+  color: '#1f2937',
+  fontSize: '18px',
+  fontWeight: 'bold',
+  margin: '0 0 12px 0',
+}
+
+const divider = {
+  borderColor: '#e5e7eb',
+  margin: '12px 0',
+}
+
+const detailRow = {
+  color: '#374151',
+  fontSize: '16px',
+  lineHeight: '24px',
+  margin: '8px 0',
+  display: 'flex' as const,
+  justifyContent: 'space-between' as const,
+}
+
+const detailLabel = {
+  color: '#6b7280',
+  fontWeight: '500',
+}
+
+const detailValue = {
+  color: '#1f2937',
+  fontWeight: 'bold',
 }
 
 const buttonContainer = {
@@ -134,12 +192,4 @@ const footer = {
   lineHeight: '16px',
   margin: '8px 0',
   padding: '0 48px',
-}
-
-const linkText = {
-  color: '#2563eb',
-  fontSize: '12px',
-  lineHeight: '16px',
-  padding: '0 48px',
-  wordBreak: 'break-all' as const,
 }

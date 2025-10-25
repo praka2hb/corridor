@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/services/jwt-service';
 import { SDKGridClient } from '@/lib/grid/sdkClient';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/transactions - Get user's transaction history

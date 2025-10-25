@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPositionsForEmployee } from '@/lib/kamino-service';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/investments/positions?employeeId=xxx
  * Get employee's current investment positions

@@ -1,435 +1,383 @@
 "use client"
 
-import { useState } from "react"
-import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { 
-  Bell,
-  Plus,
-  Send,
   TrendingUp,
-  Clock,
   CheckCircle,
   AlertCircle,
-  MoreHorizontal,
   DollarSign,
-  Users
+  Users,
+  Building2,
+  ArrowRight,
+  Wallet,
+  Calendar,
+  Mail,
+  ExternalLink,
+  Activity,
+  Shield,
+  Zap
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useUserData } from "@/hooks/use-user-data"
+import { useOrganizations } from "@/hooks/use-organizations"
+import { useEmployeePayroll } from "@/hooks/use-employee-payroll"
+import { useInvestmentData } from "@/hooks/use-investment-data"
+import { useBusinessMetrics } from "@/hooks/use-business-metrics"
+import { InvestmentTrendChart } from "@/components/ui/investment-trend-chart"
+import { formatCurrency, formatPercentage } from "@/lib/utils"
 
-
-const recentPayrolls = [
-  { id: 1, date: "Dec 15, 2024", amount: "$45,250.00", employees: 18, status: "completed" },
-  { id: 2, date: "Dec 1, 2024", amount: "$45,250.00", employees: 18, status: "completed" },
-  { id: 3, date: "Nov 15, 2024", amount: "$43,100.00", employees: 17, status: "completed" },
-]
-
-const recentTransactions = [
-  { id: 1, type: "sent", user: "@juan_dev", amount: 25.00, time: "2 hours ago" },
-  { id: 2, type: "received", user: "@maria_biz", amount: 500.00, time: "1 day ago" },
-  { id: 3, type: "sent", user: "@alex_design", amount: 75.50, time: "2 days ago" },
-  { id: 4, type: "received", user: "@crypto_sam", amount: 120.00, time: "3 days ago" },
-]
-
-const pendingItems = [
-  { id: 1, type: "payroll", title: "December Payroll Review", description: "18 employees • $45,250.00 total", urgent: true },
-  { id: 2, type: "request", title: "Payment Request from @sarah_ops", description: "$150.00 for project completion", urgent: false },
-  { id: 3, type: "approval", title: "New Team Member Setup", description: "Add Alex Chen to payroll system", urgent: false },
-]
 
 export function Dashboard() {
-  const { userData, balance, loading } = useUserData()
+  const { userData, balance, loading: userLoading } = useUserData()
+  const { organizations, loading: orgsLoading } = useOrganizations()
+  const { payrollStreams, loading: payrollLoading } = useEmployeePayroll()
+  const { personalHoldings, growthHistory, availableStrategies, loading: investmentLoading } = useInvestmentData()
+  const { managedOrganizations, loading: metricsLoading } = useBusinessMetrics()
+  const router = useRouter()
 
   // Get username or fallback to email or "there"
   const displayName = userData?.username || userData?.email?.split('@')[0] || 'there'
   // Get balance or fallback to 0
   const userBalance = balance?.availableBalance || balance?.amount || 0
 
+  const loading = userLoading || orgsLoading || payrollLoading || investmentLoading
+
   return (
     <div className="space-y-8">
-          {/* Welcome Header */}
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold text-slate-900">
-              Good morning, {loading ? '...' : displayName} 👋
-            </h2>
-            <p className="text-slate-600 mt-1">Here's what's happening with your business and personal finances today.</p>
-          </div>
+      {/* Welcome Header */}
+      <div className="mb-8">
+        <h2 className="text-3xl font-bold text-slate-900">
+          Good morning, {loading ? '...' : displayName} 👋
+        </h2>
+        <p className="text-slate-600 mt-1">Here's what's happening with your personal and business finances today.</p>
+      </div>
 
-          {/* Quick Actions - Reduced */}
-          <div className="bg-white/70 backdrop-blur-sm rounded-xl border border-white/50 shadow-lg p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold text-slate-900">Quick Actions</h3>
-            </div>
-            <div className="flex gap-3">
-              <Button 
-                size="sm" 
-                variant="neo"
-                className="flex-1 h-12 text-sm font-medium"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                New Payroll
-              </Button>
-              <Button 
-                size="sm"
-                variant="neoOutline"
-                className="flex-1 h-12 text-sm font-medium"
-              >
-                <Send className="h-4 w-4 mr-2" />
-                Send Funds
-              </Button>
-            </div>
-          </div>
-
-          {/* Network & Treasury Status
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 text-slate-100 shadow-2xl">
-              <Image
-                src="/solana.jpg"
-                alt="Solana network background"
-                fill
-                sizes="(max-width: 1024px) 100vw, 50vw"
-                className="object-cover opacity-30"
-              />
-              <div className="absolute inset-0 bg-gradient-to-br from-slate-900/90 via-slate-950/85 to-purple-900/70"></div>
-              <div className="relative p-6 space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm uppercase tracking-wide text-purple-300/80">Solana Network</p>
-                    <h3 className="mt-1 text-2xl font-semibold text-white">Mainnet Status</h3>
-                  </div>
-                  <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-medium text-emerald-300">
-                    <span className="size-2 rounded-full bg-emerald-300"></span>
-                    Healthy
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-xs uppercase tracking-wide text-purple-200/70">Live TPS</p>
-                    <p className="mt-2 text-xl font-semibold text-white">3,240</p>
-                    <p className="text-xs text-purple-100/70">~65k capacity</p>
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-xs uppercase tracking-wide text-purple-200/70">Avg Fee</p>
-                    <p className="mt-2 text-xl font-semibold text-white">$0.0009</p>
-                    <p className="text-xs text-purple-100/70">Per transaction</p>
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-xs uppercase tracking-wide text-purple-200/70">Block Time</p>
-                    <p className="mt-2 text-xl font-semibold text-white">412 ms</p>
-                    <p className="text-xs text-purple-100/70">Last sampled</p>
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-xs uppercase tracking-wide text-purple-200/70">Uptime</p>
-                    <p className="mt-2 text-xl font-semibold text-white">99.9%</p>
-                    <p className="text-xs text-purple-100/70">30-day</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 text-slate-100 shadow-2xl">
-              <Image
-                src="/usdc.png"
-                alt="USDC token background"
-                fill
-                sizes="(max-width: 1024px) 100vw, 50vw"
-                className="object-contain opacity-40 scale-150 -translate-y-4"
-              />
-              <div className="absolute inset-0 bg-gradient-to-br from-slate-900/90 via-slate-900/80 to-sky-900/70"></div>
-              <div className="relative p-6 space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm uppercase tracking-wide text-sky-300/80">USDC Treasury</p>
-                    <h3 className="mt-1 text-2xl font-semibold text-white">Liquidity Snapshot</h3>
-                  </div>
-                  <span className="inline-flex items-center gap-2 rounded-full bg-sky-500/20 px-3 py-1 text-xs font-medium text-sky-200">
-                    <TrendingUp className="h-4 w-4" />
-                    +3.2% WoW
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-xs uppercase tracking-wide text-sky-100/70">Contract Balance</p>
-                    <p className="mt-2 text-xl font-semibold text-white">$3.6M</p>
-                    <p className="text-xs text-sky-100/70">Custodied funds</p>
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-xs uppercase tracking-wide text-sky-100/70">Streaming Out</p>
-                    <p className="mt-2 text-xl font-semibold text-white">$182K</p>
-                    <p className="text-xs text-sky-100/70">Next 7 days</p>
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-xs uppercase tracking-wide text-sky-100/70">Yield Earned</p>
-                    <p className="mt-2 text-xl font-semibold text-white">$12.4K</p>
-                    <p className="text-xs text-sky-100/70">Season to date</p>
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-xs uppercase tracking-wide text-sky-100/70">Idle Funds</p>
-                    <p className="mt-2 text-xl font-semibold text-white">$410K</p>
-                    <p className="text-xs text-sky-100/70">Available</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div> */}
-
-          {/* Analytics Overview Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Total Revenue Card */}
-            <div className="bg-white/70 backdrop-blur-sm rounded-xl border border-white/50 shadow-lg p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-600">Total Revenue</p>
-                  <p className="text-2xl font-bold text-slate-900">$542.3K</p>
-                  <p className="text-xs text-green-600 flex items-center mt-1">
-                    <TrendingUp className="h-3 w-3 mr-1" />
-                    +12.5% from last month
-                  </p>
-                </div>
-                <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <DollarSign className="h-6 w-6 text-blue-600" />
-                </div>
-              </div>
-            </div>
-
-            {/* Active Employees Card */}
-            <div className="bg-white/70 backdrop-blur-sm rounded-xl border border-white/50 shadow-lg p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-600">Active Employees</p>
-                  <p className="text-2xl font-bold text-slate-900">18</p>
-                  <p className="text-xs text-blue-600 flex items-center mt-1">
-                    <Users className="h-3 w-3 mr-1" />
-                    2 new this month
-                  </p>
-                </div>
-                <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Users className="h-6 w-6 text-blue-600" />
-                </div>
-              </div>
-            </div>
-
-            {/* Pending Payments Card */}
-            <div className="bg-white/70 backdrop-blur-sm rounded-xl border border-white/50 shadow-lg p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-600">Pending Payments</p>
-                  <p className="text-2xl font-bold text-slate-900">3</p>
-                  <p className="text-xs text-amber-600 flex items-center mt-1">
-                    <Clock className="h-3 w-3 mr-1" />
-                    $2,450 total
-                  </p>
-                </div>
-                <div className="h-12 w-12 bg-amber-100 rounded-lg flex items-center justify-center">
-                  <Clock className="h-6 w-6 text-amber-600" />
-                </div>
-              </div>
-            </div>
-
-            {/* Yield Earned Card */}
-            <div className="bg-white/70 backdrop-blur-sm rounded-xl border border-white/50 shadow-lg p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-600">Yield Earned</p>
-                  <p className="text-2xl font-bold text-slate-900">$1,234</p>
-                  <p className="text-xs text-green-600 flex items-center mt-1">
-                    <TrendingUp className="h-3 w-3 mr-1" />
-                    2.4% APY
-                  </p>
-                </div>
-                <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <TrendingUp className="h-6 w-6 text-green-600" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Team Activity Card */}
-          <div className="bg-white/70 backdrop-blur-sm rounded-xl border border-white/50 shadow-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-slate-900">Recent Team Activity</h3>
-              <Button variant="ghost" size="sm" className="text-slate-600">
-                View All
-              </Button>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 p-3 bg-slate-50/50 rounded-lg">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-blue-100 text-blue-700 text-xs">SA</AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-slate-900">Sarah Adams completed timesheet</p>
-                  <p className="text-xs text-slate-600">2 hours ago</p>
-                </div>
-                <Badge variant="secondary" className="bg-green-100 text-green-700">
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Complete
-                </Badge>
-              </div>
-              <div className="flex items-center gap-3 p-3 bg-slate-50/50 rounded-lg">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-blue-100 text-blue-700 text-xs">MC</AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-slate-900">Mike Chen requested time off</p>
-                  <p className="text-xs text-slate-600">4 hours ago</p>
-                </div>
-                <Badge variant="secondary" className="bg-amber-100 text-amber-700">
-                  <Clock className="h-3 w-3 mr-1" />
-                  Pending
-                </Badge>
-              </div>
-              <div className="flex items-center gap-3 p-3 bg-slate-50/50 rounded-lg">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-purple-100 text-purple-700 text-xs">JL</AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-slate-900">Jessica Liu updated payment details</p>
-                  <p className="text-xs text-slate-600">1 day ago</p>
-                </div>
-                <Badge variant="secondary" className="bg-green-100 text-green-700">
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Complete
-                </Badge>
-              </div>
-            </div>
-          </div>
-
-          {/* Main Dashboard Cards Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Company Overview Card */}
-            <div className="bg-white/70 backdrop-blur-sm rounded-2xl border border-white/50 shadow-xl p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-slate-900">My Company Overview</h3>
-                <DollarSign className="h-6 w-6 text-blue-600" />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-slate-50/80 rounded-xl p-4">
-                  <div className="text-2xl font-bold text-slate-900">18</div>
-                  <div className="text-sm text-slate-600">Total Employees</div>
-                </div>
-                <div className="bg-slate-50/80 rounded-xl p-4">
-                  <div className="text-2xl font-bold text-blue-600">Jan 1</div>
-                  <div className="text-sm text-slate-600">Next Payroll</div>
-                </div>
-              </div>
-
+      {/* SECTION A: Personal Finance View */}
+      <div className="space-y-6">
+        <h3 className="text-2xl font-bold text-slate-900">Personal Finance</h3>
+        
+        {/* Hero Stats - 4 metric cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Personal USDC Balance */}
+          <div className="bg-gradient-to-br from-white/80 to-slate-50/80 backdrop-blur-sm rounded-2xl border border-slate-200/50 shadow-lg p-6 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between">
               <div>
-                <h4 className="font-semibold text-slate-900 mb-3">Recent Payrolls</h4>
-                <div className="space-y-3">
-                  {recentPayrolls.map((payroll) => (
-                    <div key={payroll.id} className="flex items-center justify-between p-3 bg-slate-50/50 rounded-lg">
-                      <div>
-                        <div className="font-medium text-slate-900">{payroll.date}</div>
-                        <div className="text-sm text-slate-600">{payroll.employees} employees</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-semibold text-slate-900">{payroll.amount}</div>
-                        <Badge variant="secondary" className="bg-green-100 text-green-700">
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Completed
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <p className="text-sm font-medium text-slate-600">Personal Balance</p>
+                <p className="text-3xl font-bold text-slate-900">
+                  {loading ? '...' : formatCurrency(userBalance)}
+                </p>
+                <p className="text-xs text-slate-600 flex items-center mt-1">
+                  <Wallet className="h-3 w-3 mr-1" />
+                  USDC
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-gradient-to-br from-sky-100 to-sky-200 rounded-xl flex items-center justify-center">
+                <Wallet className="h-6 w-6 text-sky-600" />
               </div>
             </div>
+          </div>
 
-            {/* Personal Wallet Card */}
-            <div className="bg-white/70 backdrop-blur-sm rounded-2xl border border-white/50 shadow-xl p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-slate-900">Personal Wallet</h3>
+          {/* Total Invested */}
+          <div className="bg-gradient-to-br from-white/80 to-slate-50/80 backdrop-blur-sm rounded-2xl border border-slate-200/50 shadow-lg p-6 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-600">Total Invested</p>
+                <p className="text-3xl font-bold text-slate-900">
+                  {formatCurrency(personalHoldings.totalInvested)}
+                </p>
+                <p className="text-xs text-sky-600 flex items-center mt-1">
+                  <TrendingUp className="h-3 w-3 mr-1" />
+                  Growing
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-gradient-to-br from-sky-100 to-sky-200 rounded-xl flex items-center justify-center">
+                <DollarSign className="h-6 w-6 text-sky-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* Yield Generated */}
+          <div className="bg-gradient-to-br from-white/80 to-slate-50/80 backdrop-blur-sm rounded-2xl border border-slate-200/50 shadow-lg p-6 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-600">Yield Generated</p>
+                <p className="text-3xl font-bold text-blue-600">
+                  {formatCurrency(personalHoldings.yieldGenerated)}
+                </p>
+                <p className="text-xs text-blue-600 flex items-center mt-1">
+                  <Activity className="h-3 w-3 mr-1" />
+                  {formatPercentage(personalHoldings.yieldPercentage)}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl flex items-center justify-center">
                 <TrendingUp className="h-6 w-6 text-blue-600" />
               </div>
-              
-              <div className="mb-6">
-                <div className="text-3xl font-bold text-slate-900 mb-2">
-                  {loading ? '...' : `$${userBalance.toFixed(2)}`}
-                </div>
-                <div className="text-sm text-slate-600 flex items-center gap-2">
-                  USDC Balance
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-                    +2.4% yield
-                  </Badge>
-                </div>
-              </div>
+            </div>
+          </div>
 
+          {/* Auto-Invest Status */}
+          <div className="bg-gradient-to-br from-white/80 to-slate-50/80 backdrop-blur-sm rounded-2xl border border-slate-200/50 shadow-lg p-6 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between">
               <div>
-                <h4 className="font-semibold text-slate-900 mb-3">Recent Transactions</h4>
+                <p className="text-sm font-medium text-slate-600">Auto-Invest</p>
+                <p className="text-3xl font-bold text-slate-900">
+                  {personalHoldings.autoInvestEnabled ? 'Active' : 'Paused'}
+                </p>
+                <p className="text-xs text-sky-600 flex items-center mt-1">
+                  <Zap className="h-3 w-3 mr-1" />
+                  Automated
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-gradient-to-br from-sky-100 to-sky-200 rounded-xl flex items-center justify-center">
+                <CheckCircle className="h-6 w-6 text-sky-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Investment Growth Chart & Incoming Payroll */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Investment Growth Chart */}
+          <Card className="bg-gradient-to-br from-white/80 to-slate-50/80 backdrop-blur-sm border-slate-200/50 shadow-lg">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-slate-900">Investment Growth</CardTitle>
+              <CardDescription>Auto-invest performance over time</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <InvestmentTrendChart data={growthHistory} />
+            </CardContent>
+          </Card>
+
+          {/* Incoming Payroll Card */}
+          <Card className="bg-gradient-to-br from-white/80 to-slate-50/80 backdrop-blur-sm border-slate-200/50 shadow-lg">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg font-semibold text-slate-900">Incoming Payroll</CardTitle>
+                  <CardDescription>Your payroll streams</CardDescription>
+                </div>
+                <Badge variant="secondary" className="bg-sky-100 text-sky-700">
+                  {payrollStreams.length} active
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {payrollStreams.length > 0 ? (
                 <div className="space-y-3">
-                  {recentTransactions.map((tx) => (
-                    <div key={tx.id} className="flex items-center justify-between p-3 bg-slate-50/50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                          tx.type === 'sent' ? 'bg-red-100' : 'bg-green-100'
-                        }`}>
-                          {tx.type === 'sent' ? (
-                            <Send className="h-4 w-4 text-red-600" />
-                          ) : (
-                            <TrendingUp className="h-4 w-4 text-green-600" />
-                          )}
-                        </div>
-                        <div>
-                          <div className="font-medium text-slate-900">
-                            {tx.type === 'sent' ? 'Paid' : 'Received from'} {tx.user}
-                          </div>
-                          <div className="text-sm text-slate-600">{tx.time}</div>
-                        </div>
+                  {payrollStreams.slice(0, 3).map((stream) => (
+                    <div key={stream.id} className="flex items-center justify-between p-3 bg-white/60 rounded-lg border border-slate-200/50">
+                      <div>
+                        <p className="font-medium text-slate-900 text-sm">{stream.employee.name}</p>
+                        <p className="text-xs text-slate-600">{stream.cadence}</p>
                       </div>
-                      <div className={`font-semibold ${
-                        tx.type === 'sent' ? 'text-red-600' : 'text-green-600'
-                      }`}>
-                        {tx.type === 'sent' ? '-' : '+'}${tx.amount.toFixed(2)}
+                      <div className="text-right">
+                        <p className="font-bold text-slate-900">{formatCurrency(stream.amountMonthly)}</p>
+                        {stream.nextRunAt && (
+                          <p className="text-xs text-slate-500">
+                            {new Date(stream.nextRunAt).toLocaleDateString()}
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            </div>
-          </div>
+              ) : (
+                <p className="text-sm text-slate-500 text-center py-4">No active payroll streams</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
-          {/* Pending Approvals / Notifications Card */}
-          <div className="bg-white/70 backdrop-blur-sm rounded-2xl border border-white/50 shadow-xl p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-slate-900">Pending Approvals & Notifications</h3>
-              <AlertCircle className="h-6 w-6 text-amber-500" />
-            </div>
-            
-            <div className="space-y-4">
-              {pendingItems.map((item) => (
-                <div key={item.id} className="flex items-center justify-between p-4 bg-slate-50/50 rounded-xl border border-slate-200/50">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      item.urgent ? 'bg-amber-100' : 'bg-slate-100'
-                    }`}>
-                      {item.type === 'payroll' && <DollarSign className="h-5 w-5 text-amber-600" />}
-                      {item.type === 'request' && <Send className="h-5 w-5 text-teal-600" />}
-                      {item.type === 'approval' && <Users className="h-5 w-5 text-slate-600" />}
-                    </div>
+      {/* SECTION B: Available Investment Strategies */}
+      {availableStrategies.length > 0 && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-2xl font-bold text-slate-900">Investment Opportunities</h3>
+            <Badge variant="secondary" className="bg-sky-100 text-sky-700">
+              {availableStrategies.length} strategies
+            </Badge>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {availableStrategies.slice(0, 3).map((strategy) => (
+              <Card key={strategy.id} className="bg-gradient-to-br from-white/80 to-slate-50/80 backdrop-blur-sm border-slate-200/50 shadow-lg hover:shadow-xl transition-all">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
                     <div>
-                      <div className="font-semibold text-slate-900">{item.title}</div>
-                      <div className="text-sm text-slate-600">{item.description}</div>
+                      <CardTitle className="text-lg font-semibold text-slate-900">{strategy.name}</CardTitle>
+                      <CardDescription className="text-sm">{strategy.asset}</CardDescription>
                     </div>
+                    <Badge 
+                      variant="secondary" 
+                      className={
+                        strategy.riskLevel === 'low' ? 'bg-sky-100 text-sky-700' :
+                        strategy.riskLevel === 'high' ? 'bg-rose-100 text-rose-700' :
+                        'bg-blue-100 text-blue-700'
+                      }
+                    >
+                      <Shield className="h-3 w-3 mr-1" />
+                      {strategy.riskLevel}
+                    </Badge>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {item.urgent && (
-                      <Badge variant="destructive" className="bg-amber-100 text-amber-700 border-amber-200">
-                        Urgent
-                      </Badge>
-                    )}
-                    <Button variant="ghost" size="sm">
-                      <MoreHorizontal className="h-4 w-4" />
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm text-slate-600 mb-1">Current APY</p>
+                      <p className="text-3xl font-bold text-blue-600">{strategy.apy.toFixed(2)}%</p>
+                    </div>
+                    <Button className="w-full bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700">
+                      Invest Now
                     </Button>
                   </div>
-                </div>
-              ))}
-            </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
+      )}
+
+      {/* SECTION C: Business Treasury View */}
+      {managedOrganizations.length > 0 && (
+        <div className="space-y-6">
+          <h3 className="text-2xl font-bold text-slate-900">Business Treasury</h3>
+          
+          {managedOrganizations.map((org) => (
+            <Card key={org.id} className="bg-gradient-to-br from-white/80 to-slate-50/80 backdrop-blur-sm border-slate-200/50 shadow-lg">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-sky-100 to-blue-100 flex items-center justify-center">
+                      <Building2 className="h-6 w-6 text-sky-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-xl font-semibold text-slate-900">{org.name}</CardTitle>
+                      <CardDescription>
+                        <Badge variant="secondary" className="bg-sky-100 text-sky-700">
+                          {org.role.charAt(0).toUpperCase() + org.role.slice(1)}
+                        </Badge>
+                      </CardDescription>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => router.push(`/organization/${org.id}`)}
+                  >
+                    View Full Dashboard
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {/* Business Metrics Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  {/* Current USDC Balance */}
+                  <div className="bg-white/60 rounded-xl border border-slate-200/50 p-4">
+                    <p className="text-sm font-medium text-slate-600 mb-1">Treasury Balance</p>
+                    <p className="text-2xl font-bold text-slate-900">{formatCurrency(org.balance)}</p>
+                    <p className="text-xs text-sky-600 flex items-center mt-1">
+                      <Wallet className="h-3 w-3 mr-1" />
+                      USDC
+                    </p>
+                  </div>
+
+                  {/* Next Paycheck Date */}
+                  <div className="bg-white/60 rounded-xl border border-slate-200/50 p-4">
+                    <p className="text-sm font-medium text-slate-600 mb-1">Next Paycheck</p>
+                    <p className="text-2xl font-bold text-slate-900">
+                      {org.nextPaycheckDate 
+                        ? new Date(org.nextPaycheckDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                        : 'N/A'
+                      }
+                    </p>
+                    <p className="text-xs text-slate-600 flex items-center mt-1">
+                      <Calendar className="h-3 w-3 mr-1" />
+                      Upcoming
+                    </p>
+                  </div>
+
+                  {/* Upcoming Payroll Obligations */}
+                  <div className="bg-white/60 rounded-xl border border-slate-200/50 p-4">
+                    <p className="text-sm font-medium text-slate-600 mb-1">Monthly Payroll</p>
+                    <p className="text-2xl font-bold text-slate-900">{formatCurrency(org.monthlyPayrollObligation)}</p>
+                    <p className="text-xs text-blue-600 flex items-center mt-1">
+                      <Users className="h-3 w-3 mr-1" />
+                      {org.activeStreamCount} streams
+                    </p>
+                  </div>
+
+                  {/* Payroll Runway */}
+                  <div className="bg-white/60 rounded-xl border border-slate-200/50 p-4">
+                    <p className="text-sm font-medium text-slate-600 mb-1">Payroll Runway</p>
+                    <p className={
+                      `text-2xl font-bold ${
+                        org.payrollRunway === Infinity ? 'text-slate-400' :
+                        org.payrollRunway < 3 ? 'text-rose-600' :
+                        org.payrollRunway < 6 ? 'text-sky-600' :
+                        'text-blue-600'
+                      }`
+                    }>
+                      {org.payrollRunway === Infinity ? '∞' : `${org.payrollRunway.toFixed(1)}m`}
+                    </p>
+                    <p className="text-xs text-slate-600 flex items-center mt-1">
+                      <TrendingUp className="h-3 w-3 mr-1" />
+                      {org.payrollRunway < 3 && org.payrollRunway !== Infinity ? 'Low' : 'Healthy'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Balance vs Next Payroll */}
+                <div className="bg-white/60 rounded-xl border border-slate-200/50 p-4 mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium text-slate-600">Balance vs Next Payroll</p>
+                    <p className="text-sm font-semibold text-slate-900">
+                      {formatCurrency(org.balance)} / {formatCurrency(org.upcomingPayrollObligation)}
+                    </p>
+                  </div>
+                  <div className="w-full bg-slate-200 rounded-full h-2">
+                    <div 
+                      className={
+                        `h-2 rounded-full transition-all ${
+                          org.balance < org.upcomingPayrollObligation ? 'bg-rose-500' :
+                          org.balance < org.upcomingPayrollObligation * 2 ? 'bg-sky-500' :
+                          'bg-blue-500'
+                        }`
+                      }
+                      style={{ 
+                        width: `${Math.min(100, (org.balance / (org.upcomingPayrollObligation || 1)) * 50)}%` 
+                      }}
+                    />
+                  </div>
+                  {org.balance < org.upcomingPayrollObligation && (
+                    <p className="text-xs text-rose-600 flex items-center mt-2">
+                      <AlertCircle className="h-3 w-3 mr-1" />
+                      Balance below next payroll obligation
+                    </p>
+                  )}
+                </div>
+
+                {/* Team Overview */}
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-slate-600" />
+                      <span className="text-slate-600">{org.employeeCount} employees</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-sky-600" />
+                      <span className="text-slate-600">{org.activeStreamCount} active streams</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
     </div>
   )
 }

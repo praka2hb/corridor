@@ -37,18 +37,18 @@ export async function GET(
 
     const organization = member.organization
 
-    if (!organization.treasuryAccountId) {
+    if (!organization.creatorAccountAddress) {
       return NextResponse.json(
-        { error: 'Organization does not have a treasury account' },
+        { error: 'Organization does not have an account address' },
         { status: 404 }
       )
     }
 
-    // Fetch balance from multisig address using GridService
-    console.log('[Balance API] Fetching balance for multisig address:', organization.treasuryAccountId)
+    // Fetch balance from creator's account using GridService
+    console.log('[Balance API] Fetching balance for account address:', organization.creatorAccountAddress)
     
     const gridService = new GridService()
-    const balanceResponse = await gridService.getAccountBalances(organization.treasuryAccountId)
+    const balanceResponse = await gridService.getAccountBalances(organization.creatorAccountAddress)
     
     console.log('[Balance API] Balance response:', balanceResponse)
 
@@ -62,7 +62,7 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      accountId: organization.treasuryAccountId,
+      accountId: organization.creatorAccountAddress,
       balances: {
         SOL: balanceMap.SOL || 0,
         USDC: balanceMap.USDC || balanceMap.USDC_DEVNET || 0,

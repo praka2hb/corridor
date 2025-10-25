@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/services/database-service';
+import { db as prisma } from '@/lib/db';
 
 // GET /api/health - Check database and API health
 export async function GET(request: NextRequest) {

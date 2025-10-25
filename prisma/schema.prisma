@@ -14,21 +14,7 @@ datasource db {
 model Organization {
   id              String   @id @default(cuid())
   name            String
-  gridOrgId       String?  @unique // Future: Grid organization ID (for multi-org features)
-  
-  // Treasury Multisig Account
-  treasuryAccountId     String?  // Multisig's Solana address (from Grid response: data.address)
-  treasuryGridId        String?  // Grid account ID (if different from treasuryAccountId)
-  treasuryGridUserId    String?  // Grid user ID for the multisig (from Grid response: data.grid_user_id)
-  treasurySignerAddress String?  // Signer's Solana address (from Grid response: data.policies.signers[0].address)
-  treasuryStatus        String   @default("active") // 'active' | 'suspended'
-  
-  // Virtual Account (ACH)
-  virtualAccountId      String?  // Grid virtual account ID
-  bankAccountNumber     String?  // For deposits
-  bankRoutingNumber     String?  // For deposits
-  bankBeneficiaryName   String?  // Account holder name
-  bankName              String?  // Bank institution name
+  creatorAccountAddress String  // Creator's Grid account address (public key)
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -64,6 +50,9 @@ model User {
   encryptedAuthSession    String? // Encrypted authentication session from Grid
   authSessionIV           String? // Initialization vector for auth session
   authSessionAuthTag      String? // Authentication tag for auth session
+  
+  // Investment preferences
+  investmentPercentage    Int?     @default(0) // Percentage of payroll to auto-invest (0-100)
   
   lastLoginAt DateTime?
   createdAt   DateTime @default(now())
@@ -165,16 +154,17 @@ model EmployeeProfile {
 }
 
 model PayrollStream {
-  id             String   @id @default(cuid())
-  employeeId     String
-  teamId         String?
-  amountMonthly  Float
-  currency       String   @default("USDC")
-  cadence        String   // 'monthly' | 'biweekly' | 'weekly'
-  status         String   @default("active") // 'active' | 'paused' | 'stopped'
-  nextRunAt      DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  employeeId           String
+  teamId               String?
+  amountMonthly        Float
+  currency             String   @default("USDC")
+  cadence              String   // 'monthly' | 'biweekly' | 'weekly'
+  status               String   @default("active") // 'active' | 'paused' | 'stopped'
+  gridStandingOrderId  String?  // Grid standing order ID
+  nextRunAt            DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   employee EmployeeProfile  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   team     Team?            @relation(fields: [teamId], references: [id], onDelete: SetNull)

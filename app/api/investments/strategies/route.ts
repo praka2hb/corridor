@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getKaminoApiClient } from '@/lib/kamino-api-client';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/investments/strategies
  * List allowlisted Kamino investment strategies with current APYs

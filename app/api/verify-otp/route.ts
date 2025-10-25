@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/services/auth-service';
 import { generateToken, setAuthCookie, setGridUserIdCookie } from '@/lib/services/jwt-service';
 import { gridClient } from '@/lib/grid-client';
+import { db } from '@/lib/db';
 
 // Force Node.js runtime for JWT compatibility
 export const runtime = 'nodejs';
@@ -10,9 +11,9 @@ export const runtime = 'nodejs';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { otp, user } = body;
+    const { otp, user: requestUser } = body;
 
-    if (!otp || !user) {
+    if (!otp || !requestUser) {
       return NextResponse.json(
         { success: false, error: 'OTP code and user are required' },
         { status: 400 }
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Extract email
-    const email = user.email || user.identifier;
+    const email = requestUser.email || requestUser.identifier;
     if (!email) {
       return NextResponse.json(
         { success: false, error: 'Email is required' },
@@ -72,11 +73,21 @@ export async function POST(request: NextRequest) {
       isNewAccount: verifyResult.isNewAccount,
     });
 
-    // Generate JWT token
+    // Fetch user from database to get username
+    const dbUser = await db.user.findUnique({
+      where: { id: verifyResult.userId! },
+      select: { username: true }
+    });
+
+    const username = dbUser?.username || undefined;
+
+    console.log('[API] User username from database:', username || 'not set');
+
+    // Generate JWT token with username if it exists
     const token = await generateToken({
       userId: verifyResult.userId!,
       email: email,
-      username: undefined, // Username set later via /api/set-username
+      username: username,
       accountAddress: verifyResult.address,
       gridUserId: verifyResult.gridUserId,
     });
@@ -94,6 +105,7 @@ export async function POST(request: NextRequest) {
       message: 'Authentication successful! ✨',
       authFlow: verifyResult.authFlow,
       isNewAccount: verifyResult.isNewAccount,
+      hasUsername: !!username, // Flag to indicate if username is set
     });
 
     // Clear user data and auth flow cookies after successful verification

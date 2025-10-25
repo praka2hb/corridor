@@ -2,7 +2,7 @@
  * Production-ready Authentication Service
  */
 
-import { gridClient } from '../grid-client';
+import { SDKGridClient } from '../grid/sdkClient';
 import { createOrUpdateUser, storeSessionSecrets, getSessionSecrets, storeAuthSession, getAuthSession } from './database-service';
 import { PrismaClient } from '@prisma/client';
 import { SessionSecrets } from '@sqds/grid';
@@ -35,8 +35,10 @@ export async function initiateAuth(email: string): Promise<AuthInitResult> {
   const normalizedEmail = email.trim().toLowerCase();
 
   try {
+    const client = SDKGridClient.getInstance();
+    
     // Try createAccount first (for new users)
-    const createResult: any = await gridClient.createAccount({
+    const createResult: any = await client.createAccount({
       email: normalizedEmail
     });
 
@@ -64,8 +66,10 @@ export async function initiateAuth(email: string): Promise<AuthInitResult> {
       console.log('[AuthService] 🔄 Account exists, using initAuth instead...');
       
       try {
+        const client = SDKGridClient.getInstance();
+        
         // Use initAuth for existing users
-        const initResult: any = await gridClient.initAuth({
+        const initResult: any = await client.initAuth({
           email: normalizedEmail,
         });
         console.log('[AuthService] initAuth result:', JSON.stringify(initResult, null, 2));
@@ -104,8 +108,10 @@ export async function verifyAuth(
   const normalizedEmail = email.trim().toLowerCase();
   
   try {
+    const client = SDKGridClient.getInstance();
+    
     // Step 2: Generate session secrets
-    const sessionSecrets: SessionSecrets = await gridClient.generateSessionSecrets();
+    const sessionSecrets: SessionSecrets = await client.generateSessionSecrets();
     console.log('[AuthService] Session secrets generated:', sessionSecrets.length);
     console.log('[AuthService] Sample session secret structure:', {
       provider: sessionSecrets[0]?.provider,
@@ -123,12 +129,12 @@ export async function verifyAuth(
     console.log(`[AuthService] Calling ${completionMethod}...`);
  
     const result: any = isNewUser 
-      ? await gridClient.completeAuthAndCreateAccount({
+      ? await client.completeAuthAndCreateAccount({
           user: userData,
           otpCode,
           sessionSecrets,
         })
-      : await gridClient.completeAuth({
+      : await client.completeAuth({
           user: userData,
           otpCode,
           sessionSecrets,

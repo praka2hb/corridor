@@ -39,7 +39,8 @@ interface SubMenuItem {
 interface Organization {
   id: string
   name: string
-  role: string
+  role?: string
+  isEmployee?: boolean
 }
 
 const staticSidebarItems: SidebarItem[] = [

@@ -3,10 +3,18 @@
  * High-level service for Grid API interactions
  */
 
-import { gridClient, GridError } from '@/lib/grid-client';
+import { SDKGridClient } from '@/lib/grid/sdkClient';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { getAccount, getAssociatedTokenAddress, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { config } from '@/lib/config';
+
+// Custom error class for Grid-specific errors
+export class GridError extends Error {
+  constructor(message: string, public code?: string, public statusCode?: number) {
+    super(message);
+    this.name = 'GridError';
+  }
+}
 
 // Known token mints
 const USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
@@ -198,7 +206,8 @@ export class GridService {
     try {
       console.log('[GridService] Fetching account:', accountId);
       
-      const result = await gridClient.getAccount(accountId);
+      const client = SDKGridClient.getInstance();
+      const result = await client.getAccount(accountId);
       
       if (!result || result.error) {
         console.error('[GridService] Error fetching account:', result?.error);
@@ -220,7 +229,8 @@ export class GridService {
       console.log('[GridService] Listing accounts for user:', userId);
       
       // Grid SDK doesn't have listAccounts, so we return the single account
-      const result = await gridClient.getAccount(userId);
+      const client = SDKGridClient.getInstance();
+      const result = await client.getAccount(userId);
       
       if (!result || result.error) {
         console.error('[GridService] Error listing accounts:', result?.error);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 /**
@@ -12,7 +12,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
  * 
  * This page handles the redirect and navigates to the appropriate destination
  */
-export default function KybCallbackPage() {
+function KybCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
@@ -105,5 +105,20 @@ export default function KybCallbackPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function KybCallbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-lg font-medium text-gray-900">Loading...</p>
+        </div>
+      </div>
+    }>
+      <KybCallbackContent />
+    </Suspense>
   );
 }

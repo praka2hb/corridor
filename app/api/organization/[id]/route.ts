@@ -29,27 +29,41 @@ export async function GET(
 
     console.log('[GetSingleOrganization] User authenticated:', user.userId);
 
-    // 2. Get organization with membership check
-    const membership = await db.organizationMember.findFirst({
-      where: {
-        userId: user.userId,
-        organizationId: params.id,
-      },
-      include: {
-        organization: {
-          select: {
-            id: true,
-            name: true,
-            gridOrgId: true,
-            treasuryStatus: true,
-            createdAt: true,
-            updatedAt: true,
+    // 2. Check for both membership and employee relationships
+    const [membership, employeeProfile] = await Promise.all([
+      db.organizationMember.findFirst({
+        where: {
+          userId: user.userId,
+          organizationId: params.id,
+        },
+        include: {
+          organization: {
+            select: {
+              id: true,
+              name: true,
+              creatorAccountAddress: true,
+              createdAt: true,
+              updatedAt: true,
+            }
           }
         }
-      }
-    });
+      }),
+      db.employeeProfile.findFirst({
+        where: {
+          userId: user.userId,
+          orgId: params.id,
+          status: 'active',
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        }
+      })
+    ]);
 
-    if (!membership) {
+    // User must have at least one relationship
+    if (!membership && !employeeProfile) {
       console.log('[GetSingleOrganization] Organization not found or access denied');
       return NextResponse.json({
         success: false,
@@ -57,15 +71,36 @@ export async function GET(
       }, { status: 404 });
     }
 
+    // Get organization data from membership or fetch separately for employee-only users
+    let organization;
+    if (membership) {
+      organization = membership.organization;
+    } else {
+      organization = await db.organization.findUnique({
+        where: { id: params.id },
+        select: {
+          id: true,
+          name: true,
+          creatorAccountAddress: true,
+          createdAt: true,
+          updatedAt: true,
+        }
+      });
+    }
+
     console.log('[GetSingleOrganization] ✅ Organization found');
-    console.log('[GetSingleOrganization] Organization:', membership.organization.name);
+    console.log('[GetSingleOrganization] Organization:', organization?.name);
+    console.log('[GetSingleOrganization] Has membership:', !!membership);
+    console.log('[GetSingleOrganization] Has employee profile:', !!employeeProfile);
     console.log('[GetSingleOrganization] ========================================');
 
     return NextResponse.json({
       success: true,
       organization: {
-        ...membership.organization,
-        role: membership.role,
+        ...organization,
+        role: membership?.role,
+        isEmployee: !!employeeProfile,
+        employeeProfile: employeeProfile || undefined,
       },
     });
 
