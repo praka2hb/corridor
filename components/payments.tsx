@@ -250,7 +250,7 @@ export function Payments() {
                   </h2>
                   <p className="mt-2 text-sm text-slate-600">USDC on Solana</p>
                   
-                  {/* Show all balances as badges */}
+                  {/* Show all balances as badges
                   {!loading && balances.length > 0 && (
                     <div className="mt-4 flex flex-wrap gap-2">
                       {balances.map((bal, idx) => (
@@ -263,7 +263,7 @@ export function Payments() {
                         </Badge>
                       ))}
                     </div>
-                  )}
+                  )} */}
                 </div>
 
                 <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
@@ -346,12 +346,19 @@ export function Payments() {
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {quickActions.map((action) => {
             const Icon = action.icon
+            const isComingSoon = action.id === "bank" || action.id === "get-paid"
             return (
               <button
                 key={action.id}
                 onClick={() => handleQuickAction(action.id)}
-                className="group flex flex-col gap-4 rounded-2xl border border-white/60 bg-white/75 p-6 text-left shadow transition hover:-translate-y-1 hover:border-sky-200 hover:shadow-lg"
+                className="group relative flex flex-col gap-4 rounded-2xl border border-white/60 bg-white/75 p-6 text-left shadow transition hover:-translate-y-1 hover:border-sky-200 hover:shadow-lg disabled:opacity-60"
+                disabled={isComingSoon}
               >
+                {isComingSoon && (
+                  <Badge className="absolute right-2 top-2 bg-gradient-to-r from-blue-500 to-sky-500 text-xs font-semibold text-white shadow-sm">
+                    Soon
+                  </Badge>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="inline-flex items-center justify-center rounded-full bg-sky-100 p-3 text-sky-600 shadow-inner">
                     <Icon className="h-5 w-5" />

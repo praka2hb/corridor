@@ -2,6 +2,7 @@ import { Resend } from 'resend'
 import OrganizationInvitation from '@/emails/organization-invitation'
 import PayrollCreatedNotification from '@/emails/payroll-created-notification'
 import PaymentExecutedNotification from '@/emails/payment-executed-notification'
+import PaymentReceivedNotification from '@/emails/payment-received-notification'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -141,6 +142,50 @@ export async function sendPaymentExecutedEmail({
     return { success: true, data }
   } catch (error) {
     console.error('[Email Service] Exception sending payment executed email:', error)
+    throw error
+  }
+}
+
+export interface SendPaymentReceivedEmailParams {
+  recipientEmail: string
+  recipientName: string
+  senderEmail: string
+  amount: number
+  currency: string
+  transactionLink: string
+}
+
+export async function sendPaymentReceivedEmail({
+  recipientEmail,
+  recipientName,
+  senderEmail,
+  amount,
+  currency,
+  transactionLink,
+}: SendPaymentReceivedEmailParams) {
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'Corridor <noreply@corridorfi.xyz>',
+      to: [recipientEmail],
+      subject: `Payment received: ${amount} ${currency}`,
+      react: PaymentReceivedNotification({
+        recipientName,
+        senderEmail,
+        amount,
+        currency,
+        transactionLink,
+      }),
+    })
+
+    if (error) {
+      console.error('[Email Service] Error sending payment received email:', error)
+      throw new Error(`Failed to send payment received email: ${error.message}`)
+    }
+
+    console.log('[Email Service] Payment received email sent successfully:', data)
+    return { success: true, data }
+  } catch (error) {
+    console.error('[Email Service] Exception sending payment received email:', error)
     throw error
   }
 }

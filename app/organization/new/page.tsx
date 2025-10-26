@@ -195,20 +195,21 @@ export default function NewOrganizationPage() {
   const mostRecentRejection = kycCheck?.rejectionReasons?.[0]
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 p-4 py-8">
-      <div className="max-w-3xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 p-4">
+      <div className="max-w-2xl mx-auto">
         {/* Header */}
-        <div className="mb-6">
+        <div className="mb-4">
           <Button
             variant="ghost"
             onClick={() => router.push('/organization')}
-            className="mb-4"
+            className="mb-2"
+            size="sm"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Organizations
+            Back
           </Button>
-          <h1 className="text-3xl font-bold text-slate-900">Create Organization</h1>
-          <p className="text-slate-600 mt-2">
+          <h1 className="text-2xl font-bold text-slate-900">Create Organization</h1>
+          <p className="text-sm text-slate-600 mt-1">
             Set up your organization to manage treasury and team payments
           </p>
         </div>
@@ -426,13 +427,13 @@ export default function NewOrganizationPage() {
             <CardHeader>
               <div className="flex items-start gap-3">
                 <div className="rounded-full bg-green-100 p-2">
-                  <CheckCircle className="h-6 w-6 text-green-600" />
+                  <Building2 className="h-6 w-6 text-green-600" />
                 </div>
-                <div className="flex-1">
+                <div>
                   <CardTitle>Create Your Organization</CardTitle>
-                  <CardDescription>
+                  {/* <CardDescription>
                     Your verification is approved. You can now create an organization.
-                  </CardDescription>
+                  </CardDescription> */}
                 </div>
               </div>
             </CardHeader>
@@ -456,12 +457,12 @@ export default function NewOrganizationPage() {
                   />
                 </div>
 
-                <div className="bg-slate-50 rounded-lg p-4 space-y-2">
-                  <p className="text-sm font-medium text-slate-900">What happens next:</p>
-                  <ul className="text-sm text-slate-600 space-y-1 ml-4 list-disc">
-                    <li>A secure multisig treasury will be created</li>
-                    <li>You'll be set as the organization owner</li>
-                    <li>You can add team members and manage payments</li>
+                <div className="bg-slate-50 rounded-lg p-3 space-y-1">
+                  <p className="text-xs font-medium text-slate-900">What happens next:</p>
+                  <ul className="text-xs text-slate-600 space-y-0.5 ml-3 list-disc">
+                    <li>Secure treasury account created</li>
+                    <li>You become the organization owner</li>
+                    <li>Add team members and manage payments</li>
                   </ul>
                 </div>
 

@@ -8,6 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SDKGridClient } from '@/lib/grid/sdkClient';
 import { getCurrentUser } from '@/lib/services/jwt-service';
+import { sendPaymentReceivedEmail } from '@/lib/services/email-service';
+import { db } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,7 +27,7 @@ export async function POST(request: NextRequest) {
 
     // 2. Parse request body
     const body = await request.json();
-    const { address, signedTransactionPayload } = body;
+    const { address, signedTransactionPayload, recipientEmail } = body;
 
     if (!address || !signedTransactionPayload) {
       return NextResponse.json(
@@ -63,6 +65,42 @@ export async function POST(request: NextRequest) {
     console.log('[ConfirmPayment] ✅ Transaction sent successfully');
     console.log('[ConfirmPayment] Signature:', signature);
     console.log('[ConfirmPayment] Confirmed at:', response.confirmed_at);
+    
+    // Send email notification to recipient if email is provided
+    if (recipientEmail) {
+      try {
+        // Get recipient user info
+        const recipientUser = await db.user.findUnique({
+          where: { email: recipientEmail },
+          select: { email: true, username: true }
+        });
+        
+        // Get sender info
+        const senderUser = await db.user.findUnique({
+          where: { id: user.userId },
+          select: { email: true }
+        });
+
+        if (recipientUser) {
+          const transactionLink = `https://solscan.io/tx/${signature}`;
+          
+          await sendPaymentReceivedEmail({
+            recipientEmail: recipientUser.email,
+            recipientName: recipientUser.username || recipientUser.email,
+            senderEmail: senderUser?.email || 'Unknown',
+            amount: body.amount || 0,
+            currency: 'USDC',
+            transactionLink,
+          });
+          
+          console.log('[ConfirmPayment] ✅ Email notification sent');
+        }
+      } catch (emailError) {
+        console.error('[ConfirmPayment] Failed to send email notification:', emailError);
+        // Don't fail the transaction if email fails
+      }
+    }
+    
     console.log('[ConfirmPayment] ========================================');
 
     return NextResponse.json({

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { Send, ExternalLink, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
+import { Send, ExternalLink, Loader2, CheckCircle2, AlertCircle, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -26,6 +26,8 @@ export function SendModal({ isOpen, onClose, accountAddress, solBalance, usdcBal
   // Note: SOL transfers not supported with Grid smart accounts - only USDC
   const [currency, setCurrency] = useState<Currency>('USDC')
   const [recipient, setRecipient] = useState("")
+  const [email, setEmail] = useState("")
+  const [searchingEmail, setSearchingEmail] = useState(false)
   const [amount, setAmount] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -34,6 +36,30 @@ export function SendModal({ isOpen, onClose, accountAddress, solBalance, usdcBal
   const [step, setStep] = useState<string>("")
 
   const currentBalance = currency === 'SOL' ? solBalance : usdcBalance
+
+  // Handle email lookup
+  const handleEmailLookup = async (searchEmail: string) => {
+    setSearchingEmail(true)
+    setError("")
+    
+    try {
+      const response = await fetch(`/api/users/search?email=${encodeURIComponent(searchEmail)}`)
+      const data = await response.json()
+      
+      if (data.success && data.found && data.user?.publicKey) {
+        setRecipient(data.user.publicKey)
+        setEmail(searchEmail)
+      } else {
+        setError("User not found with this email")
+        setRecipient("")
+      }
+    } catch (err) {
+      setError("Failed to lookup user")
+      setRecipient("")
+    } finally {
+      setSearchingEmail(false)
+    }
+  }
 
   const handleSend = async () => {
     setError("")
@@ -116,6 +142,8 @@ export function SendModal({ isOpen, onClose, accountAddress, solBalance, usdcBal
         body: JSON.stringify({
           address: address,
           signedTransactionPayload: signedTransactionPayload,
+          recipientEmail: email,
+          amount: sendAmount,
         }),
       })
 
@@ -139,6 +167,7 @@ export function SendModal({ isOpen, onClose, accountAddress, solBalance, usdcBal
       
       // Clear form
       setRecipient("")
+      setEmail("")
       setAmount("")
 
     } catch (err: any) {
@@ -169,6 +198,7 @@ export function SendModal({ isOpen, onClose, accountAddress, solBalance, usdcBal
   const handleClose = () => {
     if (!loading) {
       setRecipient("")
+      setEmail("")
       setAmount("")
       setError("")
       setSuccess(false)
@@ -250,19 +280,39 @@ export function SendModal({ isOpen, onClose, accountAddress, solBalance, usdcBal
               </p>
             </div>
 
-            {/* Recipient Address */}
+            {/* Email or Address */}
             <div className="space-y-1.5">
-              <Label htmlFor="recipient" className="text-sm font-medium text-slate-700">
-                Recipient Address
+              <Label htmlFor="email" className="text-sm font-medium text-slate-700">
+                Email or Solana Address
               </Label>
-              <Input
-                id="recipient"
-                placeholder="Enter Solana address..."
-                value={recipient}
-                onChange={(e) => setRecipient(e.target.value)}
-                disabled={loading}
-                className="bg-white/80 border-slate-300 focus:border-sky-500 focus:ring-sky-500 h-10"
-              />
+              <div className="space-y-2">
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Enter email address..."
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value)
+                    setRecipient("")
+                  }}
+                  onBlur={() => {
+                    if (email && !recipient) {
+                      handleEmailLookup(email)
+                    }
+                  }}
+                  disabled={loading || searchingEmail}
+                  className="bg-white/80 border-slate-300 focus:border-sky-500 focus:ring-sky-500 h-10"
+                />
+                {searchingEmail && (
+                  <p className="text-xs text-slate-500">Looking up user...</p>
+                )}
+                {recipient && (
+                  <div className="flex items-center gap-2 text-xs text-green-600">
+                    <CheckCircle className="h-3 w-3" />
+                    <span>User found and verified</span>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Amount */}
@@ -296,7 +346,7 @@ export function SendModal({ isOpen, onClose, accountAddress, solBalance, usdcBal
             {/* Send Button */}
             <Button
               onClick={handleSend}
-              disabled={loading || !recipient || !amount}
+              disabled={loading || searchingEmail || !recipient || !amount}
               className="w-full h-10 text-sm font-semibold mt-2"
               variant="neo"
             >

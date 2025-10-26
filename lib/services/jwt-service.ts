@@ -9,7 +9,7 @@ import { cookies } from 'next/headers';
 
 // JWT Secret - in production, this should be in env variables
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
-const TOKEN_EXPIRY_SECONDS = 7 * 24 * 60 * 60; // 7 days
+const TOKEN_EXPIRY_SECONDS = 60 * 60; // 1 hour
 const COOKIE_NAME = 'auth_token';
 
 // Convert secret to Uint8Array for jose
@@ -80,7 +80,7 @@ export async function setAuthCookie(token: string): Promise<void> {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 7, // 7 days in seconds
+    maxAge: 60 * 60, // 1 hour in seconds
     path: '/',
   });
 }
@@ -112,7 +112,7 @@ export async function setGridUserIdCookie(gridUserId: string): Promise<void> {
     httpOnly: false, // Allow frontend access
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 7, // 7 days in seconds
+    maxAge: 60 * 60, // 1 hour in seconds
     path: '/',
   });
 }
