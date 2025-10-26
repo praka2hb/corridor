@@ -190,12 +190,14 @@ export async function createPayrollStream({
     const gridStandingOrderId = standingOrderResponse.data.id;
     const gridNextExecutionDate = (standingOrderResponse.data as any).next_execution_date;
     const standingOrderStatus = (standingOrderResponse.data as any).status;
-    const transactionPayload = (standingOrderResponse.data as any).transactionPayload;
+    const transactionPayload = (standingOrderResponse.data as any).transactionPayload || (standingOrderResponse.data as any).transaction;
+    const kmsPayloads = (standingOrderResponse.data as any).kms_payloads;
 
     // ALWAYS sign and submit immediately after creation
     // Grid only returns transactionPayload during creation, not in getStandingOrder()
     if (transactionPayload) {
       console.log('[PayrollService] Transaction payload received, signing and submitting immediately...');
+      console.log('[PayrollService] KMS payloads included:', kmsPayloads?.length || 0, 'payloads');
       
       try {
         // Get organization owner's session secrets and auth session
@@ -224,10 +226,17 @@ export async function createPayrollStream({
         }
 
         // Sign and submit the transaction immediately
-        console.log('[PayrollService] Signing and submitting standing order transaction...');
+        // Construct TransactionPayload from Grid response
+        const transactionPayloadData = {
+          transaction: transactionPayload,
+          kms_payloads: kmsPayloads,
+          transaction_signers: (standingOrderResponse.data as any).transaction_signers || []
+        };
+        
+        console.log('[PayrollService] Signing and submitting standing order transaction with KMS payloads...');
         const signedResult = await gridClient.signAndSend({
           sessionSecrets,
-          transactionPayload,
+          transactionPayload: transactionPayloadData,
           session: authSession,
           address: organization.creatorAccountAddress,
         });

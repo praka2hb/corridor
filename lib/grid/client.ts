@@ -147,7 +147,7 @@ export async function send(accountAddress: string, signedPayload: any) {
  * @returns Transaction result
  */
 export async function signAndSend(payload: SignAndSendPayload) {
-  const client = SDKGridClient.getFrontendClient();
+  const client = SDKGridClient.getInstance();
   
   try {
     console.log('[Grid] Signing and sending transaction for:', payload.address);
