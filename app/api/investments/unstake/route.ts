@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { buildAndSendUnstakeTx, buildAndSendWithdrawTx } from '@/lib/kamino-service';
 import { db } from '@/lib/db';
+
+// Force dynamic rendering to avoid build-time issues with WASM
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 /**
  * POST /api/investments/unstake
@@ -11,6 +14,8 @@ import { db } from '@/lib/db';
  * - Legacy format: { employeeId, strategyId, shares?, amount?, idempotencyKey }
  */
 export async function POST(request: NextRequest) {
+  // Lazy load kamino-service to avoid build-time WASM issues
+  const { buildAndSendUnstakeTx, buildAndSendWithdrawTx } = await import('@/lib/kamino-service');
   try {
     const body = await request.json();
     const { employeeId, assetSymbol, strategyId, shares, amount, idempotencyKey, employeeWallet } = body;

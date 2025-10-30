@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPositionsForEmployee } from '@/lib/kamino-service';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 /**
  * GET /api/investments/positions?employeeId=xxx
- * Get employee's current investment positions
+ * Get all investment positions for an employee
  */
 export async function GET(request: NextRequest) {
+  // Lazy load kamino-service to avoid build-time WASM issues
+  const { getPositionsForEmployee } = await import('@/lib/kamino-service');
   try {
     const { searchParams } = new URL(request.url);
     const employeeId = searchParams.get('employeeId');
