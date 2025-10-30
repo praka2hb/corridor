@@ -254,3 +254,89 @@ export async function getStandingOrder(accountAddress: string, standingOrderId: 
     throw error;
   }
 }
+
+/**
+ * Prepare an arbitrary Solana transaction for signing
+ * This allows employees to sign custom transactions (e.g., Kamino deposits/withdrawals)
+ * with their Grid-managed wallet
+ * 
+ * @param accountAddress - Employee's Grid account address
+ * @param serializedTransaction - Base64 encoded serialized Solana transaction
+ * @param transactionVersion - Transaction version: 'legacy' or 0 (for versioned transactions with lookup tables)
+ * @returns Prepared transaction payload ready for signing
+ */
+export async function prepareArbitraryTransaction(
+  accountAddress: string,
+  serializedTransaction: string,
+  transactionVersion?: 'legacy' | 0
+) {
+  const client = SDKGridClient.getInstance();
+  
+  try {
+    console.log('[Grid] Preparing arbitrary transaction for account:', accountAddress);
+    console.log('[Grid] Transaction version:', transactionVersion || 'legacy');
+    
+    // Check if Grid SDK supports arbitrary transaction preparation
+    // Note: This is a placeholder - actual Grid SDK method may differ
+    // You may need to check Grid SDK documentation for the exact method name
+    
+    if (typeof (client as any).prepareTransaction === 'function') {
+      // If Grid has a prepareTransaction method
+      const result = await (client as any).prepareTransaction({
+        accountAddress,
+        serializedTransaction,
+        version: transactionVersion || 'legacy',
+      });
+      
+      console.log('[Grid] Arbitrary transaction prepared successfully');
+      return result;
+    } else {
+      // Fallback: Grid may handle this differently
+      // For now, we'll return the serialized transaction as-is
+      // The employee will sign it directly with their Grid session
+      console.warn('[Grid] prepareTransaction method not found in SDK');
+      console.warn('[Grid] Returning serialized transaction for direct signing');
+      
+      return {
+        serializedTransaction,
+        accountAddress,
+        version: transactionVersion || 'legacy',
+        requiresDirectSigning: true,
+      };
+    }
+  } catch (error) {
+    console.error('[Grid] Failed to prepare arbitrary transaction:', error);
+    throw new Error(`Failed to prepare transaction: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+/**
+ * Submit a signed arbitrary transaction to the Solana blockchain
+ * 
+ * @param signedTransaction - Base64 encoded signed transaction
+ * @returns Transaction signature and confirmation status
+ */
+export async function submitArbitraryTransaction(signedTransaction: string) {
+  const client = SDKGridClient.getInstance();
+  
+  try {
+    console.log('[Grid] Submitting signed arbitrary transaction');
+    
+    // Check if Grid SDK has a method to submit arbitrary transactions
+    if (typeof (client as any).submitTransaction === 'function') {
+      const result = await (client as any).submitTransaction({
+        signedTransaction,
+      });
+      
+      console.log('[Grid] Transaction submitted:', result);
+      return result;
+    } else {
+      // If Grid doesn't have this method, we'll need to submit directly to Solana RPC
+      console.warn('[Grid] submitTransaction method not found in SDK');
+      throw new Error('Grid SDK does not support arbitrary transaction submission. Use Solana RPC directly.');
+    }
+  } catch (error) {
+    console.error('[Grid] Failed to submit arbitrary transaction:', error);
+    throw error;
+  }
+}

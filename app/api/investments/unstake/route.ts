@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { buildAndSendUnstakeTx, buildAndSendWithdrawTx } from '@/lib/kamino-service';
+import { db } from '@/lib/db';
 
 /**
  * POST /api/investments/unstake
- * Withdraw from Kamino Lend reserve (or legacy unstake)
+ * Prepare Kamino Lend withdraw transaction for employee to sign
  * 
  * Body: 
- * - New format: { employeeId, assetSymbol, amount?, shares?, idempotencyKey }
+ * - New format: { employeeId, assetSymbol, amount?, shares?, idempotencyKey, employeeWallet }
  * - Legacy format: { employeeId, strategyId, shares?, amount?, idempotencyKey }
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { employeeId, assetSymbol, strategyId, shares, amount, idempotencyKey } = body;
+    const { employeeId, assetSymbol, strategyId, shares, amount, idempotencyKey, employeeWallet } = body;
 
     // Validation
     if (!employeeId || !idempotencyKey) {
@@ -41,19 +42,48 @@ export async function POST(request: NextRequest) {
 
     // Use new withdraw flow for Kamino Lend
     if (assetSymbol) {
+      if (!employeeWallet) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'employeeWallet is required for Kamino Lend withdrawals',
+          },
+          { status: 400 }
+        );
+      }
+
+      // Build transaction for employee to sign
       const result = await buildAndSendWithdrawTx({
         employeeId,
         assetSymbol,
         shares,
         amount,
         idempotencyKey,
+        employeeWallet,
+      });
+
+      // Find the ledger entry we just created
+      const ledgerEntry = await db.providerLedger.findFirst({
+        where: {
+          employeeId,
+          provider: 'kamino',
+          type: 'unstake',
+          status: 'pending',
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
       });
 
       return NextResponse.json({
         success: true,
         data: {
-          txSig: result.txSig,
-          shares: result.shares,
+          serializedTransaction: result.serializedTransaction,
+          obligationAddress: result.obligationAddress,
+          withdrawAmount: result.withdrawAmount,
+          blockhashExpiry: result.blockhashExpiry,
+          ledgerId: ledgerEntry?.id,
+          assetSymbol,
         },
       });
     }

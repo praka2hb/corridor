@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { buildAndSendStakeTx, buildAndSendDepositTx } from '@/lib/kamino-service';
+import { db } from '@/lib/db';
 
 /**
  * POST /api/investments/stake
- * Deposit into Kamino Lend reserve (or legacy stake)
+ * Prepare Kamino Lend deposit transaction for employee to sign
  * 
  * Body: 
- * - New format: { employeeId, assetSymbol, amount, idempotencyKey }
+ * - New format: { employeeId, assetSymbol, amount, idempotencyKey, employeeWallet }
  * - Legacy format: { employeeId, strategyId, amount, idempotencyKey }
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { employeeId, assetSymbol, strategyId, amount, idempotencyKey } = body;
+    const { employeeId, assetSymbol, strategyId, amount, idempotencyKey, employeeWallet } = body;
 
     // Validation
     if (!employeeId || !amount || !idempotencyKey) {
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Enforce min/max limits
-    const MIN_STAKE = 1; // 1 USDC
+    const MIN_STAKE = 0.01; // 0.01 USDC minimum
     const MAX_STAKE = 10000; // 10k USDC per transaction
 
     if (amount < MIN_STAKE || amount > MAX_STAKE) {
@@ -60,20 +61,49 @@ export async function POST(request: NextRequest) {
 
     // Use new deposit flow for Kamino Lend
     if (assetSymbol) {
+      if (!employeeWallet) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'employeeWallet is required for Kamino Lend deposits',
+          },
+          { status: 400 }
+        );
+      }
+
+      // Build transaction for employee to sign
       const result = await buildAndSendDepositTx({
         employeeId,
         assetSymbol,
         amount,
         idempotencyKey,
+        employeeWallet,
+      });
+
+      // Find the ledger entry we just created
+      const ledgerEntry = await db.providerLedger.findFirst({
+        where: {
+          employeeId,
+          provider: 'kamino',
+          type: 'stake',
+          status: 'pending',
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
       });
 
       return NextResponse.json({
         success: true,
         data: {
-          txSig: result.txSig,
-          positionId: result.positionId,
-          receiptTokenMint: result.receiptTokenMint,
-          shares: result.shares,
+          serializedTransaction: result.serializedTransaction,
+          obligationAddress: result.obligationAddress,
+          kTokenMint: result.kTokenMint,
+          reserveAddress: result.reserveAddress,
+          blockhashExpiry: result.blockhashExpiry,
+          ledgerId: ledgerEntry?.id,
+          amount,
+          assetSymbol,
         },
       });
     }

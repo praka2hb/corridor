@@ -151,6 +151,7 @@ model EmployeeProfile {
   investmentPrefs     InvestmentPreference[]
   positions           EmployeePosition[]
   ledger              LedgerTransaction[]
+  obligations         EmployeeObligation[]
 }
 
 model PayrollStream {
@@ -242,6 +243,7 @@ model ProviderLedger {
   txSig      String?
   status     String   // 'pending' | 'completed' | 'failed'
   error      String?
+  metadata   String?  // JSON: { txPreparedAt, employeeWallet, gridTxId, obligationAddress, kTokenMint, reserveAddress, blockhash, lastValidBlockHeight }
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
@@ -330,4 +332,19 @@ model Notification {
   
   @@index([userId])
   @@index([createdAt])
+}
+
+// Kamino Lend obligation tracking per employee
+model EmployeeObligation {
+  id                String   @id @default(cuid())
+  employeeId        String
+  obligationAddress String   @unique
+  marketAddress     String   // Kamino market address
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  employee EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  @@index([employeeId])
+  @@index([obligationAddress])
 }

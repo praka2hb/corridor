@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge"
 import { useUserData } from "@/hooks/use-user-data"
 import { SendModal } from "@/components/send-modal"
 import { DepositModal } from "@/components/deposit-modal"
+import { KaminoModal } from "@/components/kamino-modal"
 import { cn } from "@/lib/utils"
 
 interface Transaction {
@@ -46,10 +47,10 @@ const quickActions = [
     icon: Plus,
   },
   {
-    id: "bank",
-    label: "To bank",
-    description: "Bridge USDC to traditional rails",
-    icon: Landmark,
+    id: "invest",
+    label: "Invest",
+    description: "Earn yield on USDC with Kamino Lend",
+    icon: ArrowUpRight,
   },
   {
     id: "send",
@@ -58,16 +59,17 @@ const quickActions = [
     icon: Send,
   },
   {
-    id: "get-paid",
-    label: "Get Paid",
-    description: "Generate deposit requests or share link",
-    icon: ArrowDownLeft,
+    id: "bank",
+    label: "To bank",
+    description: "Bridge USDC to traditional rails",
+    icon: Landmark,
   },
 ] as const
 
 export function Payments() {
   const [sendModalOpen, setSendModalOpen] = useState(false)
   const [depositModalOpen, setDepositModalOpen] = useState(false)
+  const [kaminoModalOpen, setKaminoModalOpen] = useState(false)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loadingTransactions, setLoadingTransactions] = useState(true)
   const { userData, balances, loading, refreshBalance } = useUserData()
@@ -222,6 +224,8 @@ export function Payments() {
       setSendModalOpen(true)
     } else if (actionId === "deposit") {
       setDepositModalOpen(true)
+    } else if (actionId === "invest") {
+      setKaminoModalOpen(true)
     }
     // Handle other actions here
   }
@@ -342,16 +346,34 @@ export function Payments() {
           />
         )}
 
+        {/* Kamino Investment Modal */}
+        {kaminoModalOpen && (
+          <KaminoModal
+            isOpen={kaminoModalOpen}
+            onClose={() => setKaminoModalOpen(false)}
+            employeeId={userData?.id || ""}
+            employeeWallet={userData?.accountAddress || ""}
+            usdcBalance={usdcBalance?.amount || 0}
+            onTransactionSuccess={handleTransactionSuccess}
+          />
+        )}
+
         {/* Quick Actions */}
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {quickActions.map((action) => {
             const Icon = action.icon
-            const isComingSoon = action.id === "bank" || action.id === "get-paid"
+            const isComingSoon = action.id === "bank"
+            const isInvest = action.id === "invest"
             return (
               <button
                 key={action.id}
                 onClick={() => handleQuickAction(action.id)}
-                className="group relative flex flex-col gap-4 rounded-2xl border border-white/60 bg-white/75 p-6 text-left shadow transition hover:-translate-y-1 hover:border-sky-200 hover:shadow-lg disabled:opacity-60"
+                className={cn(
+                  "group relative flex flex-col gap-4 rounded-2xl border p-6 text-left shadow transition hover:-translate-y-1 hover:shadow-lg disabled:opacity-60",
+                  isInvest 
+                    ? "border-emerald-200 bg-gradient-to-br from-emerald-50 to-white hover:border-emerald-300" 
+                    : "border-white/60 bg-white/75 hover:border-sky-200"
+                )}
                 disabled={isComingSoon}
               >
                 {isComingSoon && (
@@ -360,10 +382,16 @@ export function Payments() {
                   </Badge>
                 )}
                 <div className="flex items-center justify-between">
-                  <span className="inline-flex items-center justify-center rounded-full bg-sky-100 p-3 text-sky-600 shadow-inner">
+                  <span className={cn(
+                    "inline-flex items-center justify-center rounded-full p-3 shadow-inner",
+                    isInvest ? "bg-emerald-100 text-emerald-600" : "bg-sky-100 text-sky-600"
+                  )}>
                     <Icon className="h-5 w-5" />
                   </span>
-                  <ArrowUpRight className="h-4 w-4 text-slate-400 transition group-hover:text-sky-500" />
+                  <ArrowUpRight className={cn(
+                    "h-4 w-4 text-slate-400 transition",
+                    isInvest ? "group-hover:text-emerald-500" : "group-hover:text-sky-500"
+                  )} />
                 </div>
                 <div>
                   <h4 className="text-lg font-semibold text-slate-900">{action.label}</h4>
