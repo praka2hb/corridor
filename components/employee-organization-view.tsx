@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,7 +18,6 @@ import {
   PiggyBank
 } from "lucide-react"
 import { EmployeePayrollCard } from "@/components/employee-payroll-card"
-import { InvestmentPreferenceSlider } from "@/components/investment-preference-slider"
 import { useUserData } from "@/hooks/use-user-data"
 import type { PayrollStreamWithDetails } from "@/lib/types/payroll"
 import { formatCurrency } from "@/lib/utils"
@@ -27,6 +27,7 @@ interface EmployeeOrganizationViewProps {
 }
 
 export function EmployeeOrganizationView({ organizationId }: EmployeeOrganizationViewProps) {
+  const router = useRouter()
   const [streams, setStreams] = useState<PayrollStreamWithDetails[]>([])
   const [totalEarned, setTotalEarned] = useState(0)
   const [investmentPercentage, setInvestmentPercentage] = useState(0)
@@ -161,48 +162,38 @@ export function EmployeeOrganizationView({ organizationId }: EmployeeOrganizatio
 
       {/* Investment Preference Section */}
       {totalPayroll > 0 && (
-        <div className="space-y-4">
-          <h3 className="text-xl font-bold text-slate-900">Investment Preferences</h3>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-              <InvestmentPreferenceSlider 
-                monthlyPayroll={totalPayroll}
-                currentPercentage={investmentPercentage}
-                onSave={(newPercentage) => {
-                  setInvestmentPercentage(newPercentage)
-                  handleRefresh()
-                }}
-              />
-            </div>
-            <Card className="bg-gradient-to-br from-sky-50 to-blue-50 border-sky-200">
-              <CardHeader>
-                <CardTitle className="text-lg">About Kamino Yield</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-sm text-slate-700">
-                  Kamino Finance offers secure, automated yield strategies on Solana.
-                </p>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-600">Current APY</span>
-                    <span className="font-bold text-sky-600">~5.2%</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-600">Risk Level</span>
-                    <span className="font-medium text-slate-900">Low</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-600">Asset</span>
-                    <span className="font-medium text-slate-900">USDC</span>
-                  </div>
+        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-blue-600 rounded-lg">
+                  <PiggyBank className="h-6 w-6 text-white" />
                 </div>
-                <p className="text-xs text-slate-500 pt-2 border-t border-sky-200">
-                  Your funds remain secure and can be withdrawn at any time.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">Investment Preferences</h3>
+                  <p className="text-sm text-slate-600 mt-1">
+                    Set up automatic investments from your payroll
+                  </p>
+                </div>
+              </div>
+              <Button 
+                onClick={() => router.push('/investments/preferences')}
+                size="lg"
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                Manage Investments
+              </Button>
+            </div>
+            {investmentPercentage > 0 && (
+              <div className="mt-4 pt-4 border-t border-blue-200">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-600">Current allocation:</span>
+                  <span className="font-bold text-blue-600">{investmentPercentage}% of payroll</span>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Payroll Streams */}

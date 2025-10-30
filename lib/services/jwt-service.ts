@@ -35,7 +35,7 @@ export async function generateToken(payload: Omit<TokenPayload, 'iat' | 'exp' | 
   const token = await new SignJWT({ ...payload, sessionCreatedAt })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime(sessionCreatedAt + TOKEN_EXPIRY_SECONDS)
+    .setExpirationTime('1h') // Use relative time string (1 hour from now)
     .sign(secretKey);
   
   return token;
