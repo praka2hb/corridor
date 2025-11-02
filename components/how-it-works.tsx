@@ -1,42 +1,42 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Lock, Shield, Zap, TrendingUp, FileCheck, ArrowUp } from "lucide-react"
+import { Building2, Wallet, Users, TrendingUp, Shield } from "lucide-react"
 
 const steps = [
   {
-    title: "Lock & Select Stream",
+    title: "Organization Setup & KYC",
     description:
-      "Employer locks funds in a smart contract and selects the payment stream: monthly, daily, or project-based—fully automated.",
-    icon: Lock,
+      "Seamless organization setup with KYC. Establish compliant on-chain business identity.",
+    icon: Building2,
     milestone: "$10K",
   },
   {
-    title: "Smart Contract Assurance",
+    title: "Treasury & Virtual Accounts",
     description:
-      "Employees are guaranteed payment as funds are securely locked. No rug pulls, no uncertainty—your earnings are protected.",
-    icon: Shield,
+      "Institutional-grade treasury with dedicated USDC accounts. Sovereign control over organizational capital.",
+    icon: Wallet,
     milestone: "$25K",
   },
   {
-    title: "Auto-Distribute",
+    title: "Payroll Configuration",
     description:
-      "Funds automatically stream to employees based on the selected schedule. Sit back and let the on-chain processes handle everything.",
-    icon: Zap,
+      "Seamless payroll streams with customizable cadences. Automated compensation for global workforce.",
+    icon: Users,
     milestone: "$50K",
   },
   {
-    title: "Auto-Invest",
+    title: "Auto-Invest Setup",
     description:
-      "Set your percentage and watch your savings grow automatically in high-yield DeFi protocols.",
+      "Automated wealth accumulation via premium DeFi protocols. Sustainable, compounding payroll growth.",
     icon: TrendingUp,
     milestone: "$100K",
   },
   {
-    title: "Automated Compliance",
+    title: "Compliance & Multi-sig Security",
     description:
-      "Corridor continuously monitors every transfer, ensures travel rule compliance, and prepares audit-ready exports.",
-    icon: FileCheck,
+      "Regulatory compliance with transfer monitoring. Institutional multi-signature transaction security.",
+    icon: Shield,
     milestone: "$250K",
   },
 ]

@@ -73,12 +73,22 @@ export function EmployeeOrganizationView({ organizationId }: EmployeeOrganizatio
   }
 
   const activeStreams = streams.filter(s => s.status === 'active')
+  
+  // Find the earliest upcoming payment date
   const nextPayment = activeStreams.length > 0 ? 
-    activeStreams.reduce((earliest, stream) => {
+    activeStreams.reduce((earliest: Date | null, stream) => {
       if (!stream.nextRunAt) return earliest
-      if (!earliest) return stream.nextRunAt
-      return new Date(stream.nextRunAt) < new Date(earliest) ? stream.nextRunAt : earliest
-    }, null as Date | null) : null
+      
+      const streamDate = new Date(stream.nextRunAt)
+      
+      // Skip invalid dates
+      if (isNaN(streamDate.getTime())) return earliest
+      
+      // Return this date if we don't have an earliest yet, or if this is earlier
+      if (!earliest) return streamDate
+      
+      return streamDate < earliest ? streamDate : earliest
+    }, null) : null
   
   // Calculate total payroll for investment slider
   const totalPayroll = activeStreams.reduce((sum, stream) => sum + stream.amountMonthly, 0)
@@ -153,7 +163,11 @@ export function EmployeeOrganizationView({ organizationId }: EmployeeOrganizatio
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-slate-900">
-              {nextPayment ? new Date(nextPayment).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A'}
+              {nextPayment ? nextPayment.toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric',
+                year: nextPayment.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+              }) : 'N/A'}
             </div>
             <p className="text-xs text-slate-600">Upcoming</p>
           </CardContent>

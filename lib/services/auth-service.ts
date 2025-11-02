@@ -43,8 +43,6 @@ export async function initiateAuth(email: string): Promise<AuthInitResult> {
     });
 
     if (createResult?.data) {
-      console.log('[AuthService] ✅ New user - OTP sent via createAccount');
-      
       return {
         success: true,
         email: normalizedEmail,
@@ -62,9 +60,7 @@ export async function initiateAuth(email: string): Promise<AuthInitResult> {
     const errorMessage = error?.message || '';
     
     // Check if account already exists (Grid returns this specific error)
-    if (errorMessage.includes('already exists') || errorMessage.includes('grid_account_already_exists_for_user')) {
-      console.log('[AuthService] 🔄 Account exists, using initAuth instead...');
-      
+    if (errorMessage.includes('already exists') || errorMessage.includes('grid_account_already_exists_for_user')) {      
       try {
         const client = SDKGridClient.getInstance();
         
@@ -72,11 +68,7 @@ export async function initiateAuth(email: string): Promise<AuthInitResult> {
         const initResult: any = await client.initAuth({
           email: normalizedEmail,
         });
-        console.log('[AuthService] initAuth result:', JSON.stringify(initResult, null, 2));
-
-        if (initResult?.data) {
-          console.log('[AuthService] ✅ Existing user - OTP sent via initAuth');
-          
+        if (initResult?.data) {          
           return {
             success: true,
             email: normalizedEmail,
@@ -112,21 +104,10 @@ export async function verifyAuth(
     
     // Step 2: Generate session secrets
     const sessionSecrets: SessionSecrets = await client.generateSessionSecrets();
-    console.log('[AuthService] Session secrets generated:', sessionSecrets.length);
-    console.log('[AuthService] Sample session secret structure:', {
-      provider: sessionSecrets[0]?.provider,
-      tag: sessionSecrets[0]?.tag,
-      publicKeyLength: sessionSecrets[0]?.publicKey?.length,
-      privateKeyLength: sessionSecrets[0]?.privateKey?.length,
-      publicKeyStart: sessionSecrets[0]?.publicKey?.substring(0, 20),
-      hasKeyPairField: 'keyPair' in (sessionSecrets[0] || {}),
-      allFields: Object.keys(sessionSecrets[0] || {})
-    });
 
     // Use different completion method based on authFlow
     const isNewUser = authFlow === 'signup';
     const completionMethod = isNewUser ? 'completeAuthAndCreateAccount' : 'completeAuth';
-    console.log(`[AuthService] Calling ${completionMethod}...`);
  
     const result: any = isNewUser 
       ? await client.completeAuthAndCreateAccount({
@@ -139,7 +120,6 @@ export async function verifyAuth(
           otpCode,
           sessionSecrets,
         });
-    console.log('[AuthService] Result:', JSON.stringify(result, null, 2));
 
     if (!result || result.success === false || result.error) {
       throw new Error(result?.error || 'Invalid or expired OTP');
@@ -162,16 +142,12 @@ export async function verifyAuth(
     // Per Grid docs: "Session secrets must be stored immediately after generation"
     // These are fresh cryptographic keys generated during completeAuth/completeAuthAndCreateAccount
     // They authorize Grid MPC transactions and must be stored for each new session
-    console.log('[AuthService] Storing fresh session secrets for user:', dbUser.id);
     await storeSessionSecrets(dbUser.id, sessionSecrets);
-    console.log('[AuthService] ✅ Fresh session secrets stored successfully');
     
     // Also store the authentication session if present
     const authenticationSession = result?.data?.authentication;
     if (authenticationSession && Array.isArray(authenticationSession)) {
-      console.log('[AuthService] Storing authentication session for user:', dbUser.id);
       await storeAuthSession(dbUser.id, authenticationSession);
-      console.log('[AuthService] ✅ Authentication session stored successfully');
     }
 
     return {
