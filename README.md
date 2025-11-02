@@ -2,7 +2,7 @@
 
 <div align="center">
 
-**Revolutionizing global payments with blockchain technology**
+**Transforming team payments with onchain automation**
 
 [![Next.js](https://img.shields.io/badge/Next.js-14.2-black?style=flat&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat&logo=typescript)](https://www.typescriptlang.org/)
@@ -15,17 +15,24 @@
 
 ## 📖 Table of Contents
 
-- [Overview](#overview)
-- [Key Features](#key-features)
-- [Technology Stack](#technology-stack)
-- [Architecture](#architecture)
-- [Squads Grid Protocol Integration](#squads-grid-protocol-integration)
-- [Kamino Finance Integration](#kamino-finance-integration)
-- [Getting Started](#getting-started)
-- [Project Structure](#project-structure)
-- [API Documentation](#api-documentation)
-- [Security & Compliance](#security--compliance)
-- [Development](#development)
+- [Overview](#-overview)
+- [Key Features](#-key-features)
+- [Technology Stack](#-technology-stack)
+- [Architecture](#-architecture)
+  - [Frontend Architecture](#frontend-architecture)
+  - [Backend Architecture](#backend-architecture)
+  - [Database Schema](#database-schema)
+- [Squads Grid Protocol Integration](#-squads-grid-protocol-integration)
+- [Kamino Finance Integration](#-kamino-finance-integration)
+- [Getting Started](#-getting-started)
+- [Project Structure](#-project-structure)
+- [API Documentation](#-api-documentation)
+- [Security & Compliance](#-security--compliance)
+- [Development](#-development)
+- [Additional Documentation](#-additional-documentation)
+- [Contributing](#-contributing)
+- [License](#-license)
+- [Links](#-links)
 
 ---
 
@@ -433,7 +440,7 @@ await updateInvestmentPreference({
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/corridor.git
+git clone https://github.com/praka2hb/corridor.git
 cd corridor
 
 # Install dependencies
