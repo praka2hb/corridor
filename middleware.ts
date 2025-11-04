@@ -17,31 +17,22 @@ export async function middleware(request: NextRequest) {
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route))
   const isAuthRoute = authRoutes.some(route => pathname.startsWith(route))
 
-  // Check if user is authenticated and session is valid
+  // Check if user is authenticated (JWT verification handles expiration)
   let isAuthenticated = false
-  let isSessionExpired = false
   
   if (token) {
     const payload = await verifyToken(token)
     isAuthenticated = payload !== null
-    
-    // Check if session has expired (1 hour timeout)
-    if (payload && payload.sessionCreatedAt) {
-      const currentTime = Math.floor(Date.now() / 1000)
-      const sessionAge = currentTime - payload.sessionCreatedAt
-      const SESSION_TIMEOUT_SECONDS = 60 * 60 // 1 hour
-      isSessionExpired = sessionAge >= SESSION_TIMEOUT_SECONDS
-    }
   }
 
-  // Redirect if session expired on protected routes
-  if (isProtectedRoute && (isSessionExpired || !isAuthenticated)) {
+  // Redirect unauthenticated users from protected routes
+  if (isProtectedRoute && !isAuthenticated) {
     const url = new URL('/auth', request.url)
     return NextResponse.redirect(url)
   }
 
-  // Redirect authenticated users from auth page to home (if session not expired)
-  if (isAuthRoute && isAuthenticated && !isSessionExpired) {
+  // Redirect authenticated users from auth page to home
+  if (isAuthRoute && isAuthenticated) {
     const url = new URL('/home', request.url)
     return NextResponse.redirect(url)
   }

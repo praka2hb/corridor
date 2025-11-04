@@ -66,8 +66,6 @@ export async function createOrUpdateUser(userData: CreateUserData): Promise<User
         }
       },
     });
-
-    console.log('[DatabaseService] Upserted user:', user.email);
     return user as unknown as UserWithOrg;
 
   } catch (error) {
@@ -210,10 +208,8 @@ export async function storeSessionSecrets(
     });
     
     // Encrypt the session secrets
-    console.log('[DatabaseService] Encrypting session secrets...');
     const encrypted = encryptSessionSecrets(sessionSecrets);
     
-    console.log('[DatabaseService] Encrypted successfully, storing in database...');
     // Store in database
     await db.user.update({
       where: { id: userId },
@@ -223,12 +219,8 @@ export async function storeSessionSecrets(
         sessionSecretsAuthTag: encrypted.authTag,
       }
     });
-    
-    console.log('[DatabaseService] ✅ Session secrets stored successfully');
-    console.log('[DatabaseService] ========================================');
   } catch (error: any) {
     console.error('[DatabaseService] ❌ Error storing session secrets:', error.message);
-    console.log('[DatabaseService] ========================================');
     throw new Error('Failed to store session secrets');
   }
 }
@@ -238,10 +230,7 @@ export async function storeSessionSecrets(
  * Returns null if no session secrets are stored
  */
 export async function getSessionSecrets(userId: string): Promise<SessionSecrets | null> {
-  try {
-    console.log('[DatabaseService] ========================================');
-    console.log('[DatabaseService] Fetching session secrets for user:', userId);
-    
+  try {    
     const user = await db.user.findUnique({
       where: { id: userId },
       select: {
@@ -265,13 +254,6 @@ export async function getSessionSecrets(userId: string): Promise<SessionSecrets 
       return null;
     }
     
-    console.log('[DatabaseService] ✅ Encrypted session secrets found in database');
-    console.log('[DatabaseService] Encrypted data lengths:', {
-      encrypted: user.encryptedSessionSecrets.length,
-      iv: user.sessionSecretsIV.length,
-      authTag: user.sessionSecretsAuthTag.length
-    });
-    
     // Decrypt the session secrets
     const encryptedData: EncryptedSessionData = {
       encrypted: user.encryptedSessionSecrets,
@@ -279,37 +261,11 @@ export async function getSessionSecrets(userId: string): Promise<SessionSecrets 
       authTag: user.sessionSecretsAuthTag,
     };
     
-    console.log('[DatabaseService] Decrypting session secrets...');
     const sessionSecrets = decryptSessionSecrets(encryptedData);
-    
-    console.log('[DatabaseService] ✅ Session secrets decrypted successfully');
-    console.log('[DatabaseService] Decrypted session secrets:', {
-      isArray: Array.isArray(sessionSecrets),
-      count: sessionSecrets.length,
-      providers: sessionSecrets.map((s: any) => s.provider).join(', ')
-    });
-    
-    // Log detailed structure of first session secret
-    if (sessionSecrets.length > 0) {
-      const firstSecret = sessionSecrets[0];
-      console.log('[DatabaseService] First session secret structure:', {
-        provider: firstSecret.provider,
-        tag: firstSecret.tag,
-        hasPublicKey: !!firstSecret.publicKey,
-        hasPrivateKey: !!firstSecret.privateKey,
-        hasKeyPair: !!(firstSecret as any).keyPair,
-        allKeys: Object.keys(firstSecret)
-      });
-      console.log('[DatabaseService] First session secret (full):', JSON.stringify(firstSecret, null, 2));
-    }
-    
-    console.log('[DatabaseService] ========================================');
     
     return sessionSecrets;
   } catch (error: any) {
     console.error('[DatabaseService] ❌ Error retrieving session secrets:', error.message);
-    console.error('[DatabaseService] Full error:', error);
-    console.log('[DatabaseService] ========================================');
     throw new Error('Failed to retrieve session secrets. You may need to re-authenticate.');
   }
 }
@@ -320,14 +276,9 @@ export async function getSessionSecrets(userId: string): Promise<SessionSecrets 
  */
 export async function storeAuthSession(userId: string, authSession: any[]): Promise<void> {
   try {
-    console.log('[DatabaseService] ========================================');
-    console.log('[DatabaseService] Storing authentication session for user:', userId);
-    
     // Encrypt the auth session
-    console.log('[DatabaseService] Encrypting authentication session...');
     const encrypted = encryptSessionSecrets(authSession as any); // Reuse same encryption
     
-    console.log('[DatabaseService] Encrypted successfully, storing in database...');
     // Store in database
     await db.user.update({
       where: { id: userId },
@@ -338,11 +289,8 @@ export async function storeAuthSession(userId: string, authSession: any[]): Prom
       }
     });
     
-    console.log('[DatabaseService] ✅ Authentication session stored successfully');
-    console.log('[DatabaseService] ========================================');
   } catch (error: any) {
     console.error('[DatabaseService] ❌ Error storing authentication session:', error.message);
-    console.log('[DatabaseService] ========================================');
     throw new Error('Failed to store authentication session');
   }
 }
@@ -353,8 +301,6 @@ export async function storeAuthSession(userId: string, authSession: any[]): Prom
  */
 export async function getAuthSession(userId: string): Promise<any[] | null> {
   try {
-    console.log('[DatabaseService] Fetching authentication session for user:', userId);
-    
     const user = await db.user.findUnique({
       where: { id: userId },
       select: {
@@ -369,8 +315,6 @@ export async function getAuthSession(userId: string): Promise<any[] | null> {
       return null;
     }
     
-    console.log('[DatabaseService] ✅ Encrypted authentication session found in database');
-    
     // Decrypt the auth session
     const encryptedData: EncryptedSessionData = {
       encrypted: user.encryptedAuthSession,
@@ -378,15 +322,11 @@ export async function getAuthSession(userId: string): Promise<any[] | null> {
       authTag: user.authSessionAuthTag,
     };
     
-    console.log('[DatabaseService] Decrypting authentication session...');
     const authSession = decryptSessionSecrets(encryptedData);
-    
-    console.log('[DatabaseService] ✅ Authentication session decrypted successfully');
-    
+        
     return authSession as any;
   } catch (error: any) {
     console.error('[DatabaseService] ❌ Error retrieving authentication session:', error.message);
-    console.error('[DatabaseService] Full error:', error);
     throw new Error('Failed to retrieve authentication session. You may need to re-authenticate.');
   }
 }
@@ -422,9 +362,7 @@ export async function verifySessionSecrets(
     const storedSigners = sessionSecrets
       .map((secret: any) => secret.publicKey?.toString() || '')
       .filter(Boolean);
-    
-    console.log('[DatabaseService] Stored signers from session secrets:', storedSigners);
-    
+        
     // Get Grid account policies to compare signers
     const { SDKGridClient } = await import('../grid/sdkClient');
     const client = SDKGridClient.getInstance();
@@ -439,9 +377,7 @@ export async function verifySessionSecrets(
     
     // Extract signer addresses from Grid account policies
     const gridSigners = accountResult.data.policies?.signers?.map((s: any) => s.address) || [];
-    
-    console.log('[DatabaseService] Grid account signers:', gridSigners);
-    
+        
     // Find matching signers
     const matchingSigners = storedSigners.filter(signer => 
       gridSigners.includes(signer)

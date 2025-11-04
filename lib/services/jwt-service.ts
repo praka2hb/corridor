@@ -10,7 +10,6 @@ import { cookies } from 'next/headers';
 // JWT Secret - in production, this should be in env variables
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
 const TOKEN_EXPIRY_SECONDS = 60 * 60; // 1 hour
-const SESSION_TIMEOUT_SECONDS = 60 * 60; // 1 hour - session timeout duration
 const COOKIE_NAME = 'auth_token';
 
 // Convert secret to Uint8Array for jose
@@ -22,7 +21,6 @@ export interface TokenPayload {
   username?: string;
   accountAddress: string;
   gridUserId?: string;
-  sessionCreatedAt?: number; // Timestamp when session was created
   iat?: number;
   exp?: number;
 }
@@ -30,12 +28,11 @@ export interface TokenPayload {
 /**
  * Generate a JWT token (Edge Runtime compatible)
  */
-export async function generateToken(payload: Omit<TokenPayload, 'iat' | 'exp' | 'sessionCreatedAt'>): Promise<string> {
-  const sessionCreatedAt = Math.floor(Date.now() / 1000);
-  const token = await new SignJWT({ ...payload, sessionCreatedAt })
+export async function generateToken(payload: Omit<TokenPayload, 'iat' | 'exp'>): Promise<string> {
+  const token = await new SignJWT({ ...payload })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('1h') // Use relative time string (1 hour from now)
+    .setExpirationTime('1h') // Token expires after 1 hour
     .sign(secretKey);
   
   return token;
@@ -49,7 +46,7 @@ export async function verifyToken(token: string): Promise<TokenPayload | null> {
     const { payload } = await jwtVerify(token, secretKey);
 
     // Runtime validation and safe narrowing of the decoded payload
-    const { userId, email, accountAddress, username, gridUserId, sessionCreatedAt, iat, exp } = payload as Record<string, unknown>;
+    const { userId, email, accountAddress, username, gridUserId, iat, exp } = payload as Record<string, unknown>;
 
     if (
       typeof userId === 'string' &&
@@ -62,7 +59,6 @@ export async function verifyToken(token: string): Promise<TokenPayload | null> {
         accountAddress,
         username: typeof username === 'string' ? username : undefined,
         gridUserId: typeof gridUserId === 'string' ? gridUserId : undefined,
-        sessionCreatedAt: typeof sessionCreatedAt === 'number' ? sessionCreatedAt : undefined,
         iat: typeof iat === 'number' ? iat : undefined,
         exp: typeof exp === 'number' ? exp : undefined,
       } as TokenPayload;
@@ -77,6 +73,7 @@ export async function verifyToken(token: string): Promise<TokenPayload | null> {
 
 /**
  * Set auth token in HTTP-only cookie
+ * Cookie expires after 1 hour, matching JWT expiration
  */
 export async function setAuthCookie(token: string): Promise<void> {
   const cookieStore = await cookies();
@@ -84,7 +81,7 @@ export async function setAuthCookie(token: string): Promise<void> {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 60 * 60, // 1 hour in seconds
+    maxAge: TOKEN_EXPIRY_SECONDS, // 1 hour in seconds
     path: '/',
   });
 }
@@ -109,6 +106,7 @@ export async function removeAuthCookie(): Promise<void> {
 
 /**
  * Set grid user ID in cookie (accessible from frontend)
+ * Cookie expires after 1 hour, matching auth token expiration
  */
 export async function setGridUserIdCookie(gridUserId: string): Promise<void> {
   const cookieStore = await cookies();
@@ -116,7 +114,7 @@ export async function setGridUserIdCookie(gridUserId: string): Promise<void> {
     httpOnly: false, // Allow frontend access
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 60 * 60, // 1 hour in seconds
+    maxAge: TOKEN_EXPIRY_SECONDS, // 1 hour in seconds
     path: '/',
   });
 }
@@ -141,36 +139,10 @@ export async function getCurrentUser(): Promise<TokenPayload | null> {
 
 /**
  * Check if user is authenticated
+ * Returns true if valid JWT token exists and hasn't expired
  */
 export async function isAuthenticated(): Promise<boolean> {
   const user = await getCurrentUser();
   return user !== null;
-}
-
-/**
- * Check if session has timed out (exceeded 1 hour)
- */
-export async function isSessionExpired(): Promise<boolean> {
-  const user = await getCurrentUser();
-  if (!user || !user.sessionCreatedAt) return true;
-  
-  const currentTime = Math.floor(Date.now() / 1000);
-  const sessionAge = currentTime - user.sessionCreatedAt;
-  
-  return sessionAge >= SESSION_TIMEOUT_SECONDS;
-}
-
-/**
- * Get remaining session time in seconds
- */
-export async function getRemainingSessionTime(): Promise<number> {
-  const user = await getCurrentUser();
-  if (!user || !user.sessionCreatedAt) return 0;
-  
-  const currentTime = Math.floor(Date.now() / 1000);
-  const sessionAge = currentTime - user.sessionCreatedAt;
-  const remaining = SESSION_TIMEOUT_SECONDS - sessionAge;
-  
-  return Math.max(0, remaining);
 }
 

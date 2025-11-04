@@ -712,14 +712,6 @@ npm test -- kamino-service.test.ts
 
 ---
 
-## 📖 Additional Documentation
-
-- [Kamino Integration Guide](./KAMINO_QUICK_START.md)
-- [Kamino Technical Docs](./docs/KAMINO_INTEGRATION.md)
-- [Session Timeout Implementation](./SESSION_TIMEOUT_IMPLEMENTATION.md)
-
----
-
 ## 🤝 Contributing
 
 Contributions are welcome! Please read our contributing guidelines before submitting PRs.
@@ -741,5 +733,3 @@ This project is proprietary and confidential.
 - [Prisma Documentation](https://www.prisma.io/docs)
 
 ---
-
-**Built with ❤️ using Next.js, Solana, Grid Protocol, and Kamino Finance**
