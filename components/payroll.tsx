@@ -54,9 +54,22 @@ export function Payroll({ organizationId: propOrganizationId }: PayrollProps) {
     }
   }, [organizationId])
 
-  const fetchPayrollStreams = async () => {
+  // Auto-refresh every 30 seconds to keep data up-to-date
+  useEffect(() => {
+    if (!organizationId) return
+
+    const intervalId = setInterval(() => {
+      fetchPayrollStreams(true) // Silent refresh to avoid UI flickering
+    }, 30000) // 30 seconds
+
+    return () => clearInterval(intervalId)
+  }, [organizationId])
+
+  const fetchPayrollStreams = async (silent = false) => {
     try {
-      setLoading(true)
+      if (!silent) {
+        setLoading(true)
+      }
       const response = await fetch(`/api/organization/${organizationId}/payroll`)
       const data = await response.json()
       
@@ -68,7 +81,9 @@ export function Payroll({ organizationId: propOrganizationId }: PayrollProps) {
     } catch (err: any) {
       setError(err.message || 'Failed to fetch payroll streams')
     } finally {
-      setLoading(false)
+      if (!silent) {
+        setLoading(false)
+      }
     }
   }
 

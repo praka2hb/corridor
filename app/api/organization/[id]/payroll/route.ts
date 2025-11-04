@@ -179,6 +179,8 @@ export async function GET(
     const enrichedStreams = await Promise.all(
       streams.map(async (stream) => {
         let standingOrderDetails = null;
+        let gridStatus = null;
+        let gridNextExecutionDate = null;
         let totalPaid = 0;
 
         // Calculate total paid
@@ -186,7 +188,7 @@ export async function GET(
           totalPaid += calculatePaymentAmount(stream.amountMonthly, stream.cadence);
         });
 
-        // Get standing order details from Grid
+        // Get standing order details from Grid for real-time status and next payment date
         if (stream.gridStandingOrderId) {
           try {
             const result = await gridClient.getStandingOrder(
@@ -194,6 +196,12 @@ export async function GET(
               stream.gridStandingOrderId
             );
             standingOrderDetails = result?.data || null;
+            
+            // Extract real-time status and next execution date from Grid
+            if (standingOrderDetails) {
+              gridStatus = standingOrderDetails.status;
+              gridNextExecutionDate = standingOrderDetails.next_execution_date;
+            }
           } catch (error) {
             console.error('[PayrollAPI] Failed to get standing order details:', error);
           }
@@ -203,6 +211,8 @@ export async function GET(
           ...stream,
           totalPaid,
           standingOrderDetails,
+          gridStatus,
+          gridNextExecutionDate,
         };
       })
     );

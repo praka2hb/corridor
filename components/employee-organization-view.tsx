@@ -42,9 +42,20 @@ export function EmployeeOrganizationView({ organizationId }: EmployeeOrganizatio
     fetchPayrollData()
   }, [organizationId])
 
-  const fetchPayrollData = async () => {
+  // Auto-refresh every 30 seconds to keep data up-to-date
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      fetchPayrollData(true) // Silent refresh to avoid UI flickering
+    }, 30000) // 30 seconds
+
+    return () => clearInterval(intervalId)
+  }, [organizationId])
+
+  const fetchPayrollData = async (silent = false) => {
     try {
-      setLoading(true)
+      if (!silent) {
+        setLoading(true)
+      }
       const response = await fetch('/api/employee/payroll')
       const data = await response.json()
       
@@ -62,7 +73,9 @@ export function EmployeeOrganizationView({ organizationId }: EmployeeOrganizatio
     } catch (err: any) {
       setError(err.message || 'Failed to fetch payroll data')
     } finally {
-      setLoading(false)
+      if (!silent) {
+        setLoading(false)
+      }
     }
   }
 

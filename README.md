@@ -334,7 +334,8 @@ const kycLink = await initiateKYC({
 ### Security
 
 - Session secrets encrypted with AES-256-GCM
-- Automatic session timeout after 30 minutes
+- JWT-based authentication with 1-hour expiration
+- HTTP-only cookies with secure flags
 - Transaction limits and velocity checks
 - Anomaly detection
 
