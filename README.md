@@ -29,7 +29,6 @@
 - [API Documentation](#-api-documentation)
 - [Security & Compliance](#-security--compliance)
 - [Development](#-development)
-- [Additional Documentation](#-additional-documentation)
 - [Contributing](#-contributing)
 - [License](#-license)
 - [Links](#-links)
@@ -732,5 +731,3 @@ This project is proprietary and confidential.
 - [Solana Documentation](https://solana.com/docs)
 - [Next.js Documentation](https://nextjs.org/docs)
 - [Prisma Documentation](https://www.prisma.io/docs)
-
----

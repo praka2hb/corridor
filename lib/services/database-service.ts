@@ -197,16 +197,6 @@ export async function storeSessionSecrets(
   sessionSecrets: SessionSecrets
 ): Promise<void> {
   try {
-    console.log('[DatabaseService] ========================================');
-    console.log('[DatabaseService] Storing session secrets for user:', userId);
-    console.log('[DatabaseService] Session secrets to store:', {
-      isArray: Array.isArray(sessionSecrets),
-      count: sessionSecrets.length,
-      providers: sessionSecrets.map((s: any) => s.provider).join(', '),
-      sampleStructure: sessionSecrets[0], // Log first one to see structure
-      hasKeyPairs: sessionSecrets.every((s: any) => (s as any).keyPair)
-    });
-    
     // Encrypt the session secrets
     const encrypted = encryptSessionSecrets(sessionSecrets);
     
@@ -250,7 +240,6 @@ export async function getSessionSecrets(userId: string): Promise<SessionSecrets 
           hasAuthTag: !!user.sessionSecretsAuthTag
         });
       }
-      console.log('[DatabaseService] ========================================');
       return null;
     }
     

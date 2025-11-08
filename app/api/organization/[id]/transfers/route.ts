@@ -95,33 +95,77 @@ export async function GET(
         },
       })
 
-      // Create a map of Grid standing order IDs to employee info
-      const payrollMap = new Map()
+      // Get all StreamRun records with transferIds for these streams
+      const streamIds = payrollStreams.map(s => s.id)
+      const streamRuns = await db.streamRun.findMany({
+        where: {
+          streamId: { in: streamIds },
+          transferId: { not: null },
+        },
+        select: {
+          transferId: true,
+          streamId: true,
+        },
+      })
+
+      // Create a map of transferId -> streamId for quick lookup
+      const transferIdToStreamId = new Map<string, string>()
+      streamRuns.forEach(run => {
+        if (run.transferId) {
+          transferIdToStreamId.set(run.transferId, run.streamId)
+        }
+      })
+
+      // Create a map of streamId -> employee info
+      const streamIdToEmployee = new Map()
       payrollStreams.forEach(stream => {
-        payrollMap.set(stream.gridStandingOrderId, {
+        streamIdToEmployee.set(stream.id, {
           employeeName: stream.employee.name,
           employeeEmail: stream.employee.email,
+          gridStandingOrderId: stream.gridStandingOrderId,
         })
       })
 
       // Filter transfers that are related to payroll streams
       filteredTransfers = allTransfers.filter((transfer: any) => {
-        // Check if transfer is related to any payroll stream
+        // First check StreamRun records (most reliable)
+        if (transferIdToStreamId.has(transfer.id)) {
+          return true
+        }
+        
+        // Fall back to signature/metadata matching for transfers not yet in StreamRun
         return payrollStreams.some(stream => 
           transfer.signature?.includes(stream.gridStandingOrderId) ||
           transfer.metadata?.standingOrderId === stream.gridStandingOrderId
         )
       }).map((transfer: any) => {
         // Add employee information to payroll transfers
-        const payrollStream = payrollStreams.find(stream => 
-          transfer.signature?.includes(stream.gridStandingOrderId) ||
-          transfer.metadata?.standingOrderId === stream.gridStandingOrderId
-        )
+        let employeeInfo = null
+        
+        // First try to get employee info from StreamRun mapping
+        const streamId = transferIdToStreamId.get(transfer.id)
+        if (streamId) {
+          employeeInfo = streamIdToEmployee.get(streamId)
+        }
+        
+        // Fall back to signature/metadata matching
+        if (!employeeInfo) {
+          const payrollStream = payrollStreams.find(stream => 
+            transfer.signature?.includes(stream.gridStandingOrderId) ||
+            transfer.metadata?.standingOrderId === stream.gridStandingOrderId
+          )
+          if (payrollStream) {
+            employeeInfo = {
+              employeeName: payrollStream.employee.name,
+              employeeEmail: payrollStream.employee.email,
+            }
+          }
+        }
         
         return {
           ...transfer,
-          employeeName: payrollStream?.employee.name,
-          employeeEmail: payrollStream?.employee.email,
+          employeeName: employeeInfo?.employeeName,
+          employeeEmail: employeeInfo?.employeeEmail,
           isPayrollTransfer: true,
         }
       })

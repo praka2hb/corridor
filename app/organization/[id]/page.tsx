@@ -23,6 +23,7 @@ export default function OrganizationDetailPage() {
   const [organization, setOrganization] = useState<any>(null)
   const [balance, setBalance] = useState<any>(null)
   const [transfers, setTransfers] = useState<any[]>([])
+  const [loadingTransfers, setLoadingTransfers] = useState(false)
   const [signers, setSigners] = useState<any[]>([])
   const [error, setError] = useState("")
   const [refreshingBalance, setRefreshingBalance] = useState(false)
@@ -87,25 +88,32 @@ export default function OrganizationDetailPage() {
   }
 
   const handleGetTransfers = () => {
-    // Refresh transfers and scroll to transfers section
-    fetchTransfers()
-    // Scroll to transfers section if it exists
-    const transfersSection = document.getElementById('transfers-section')
-    if (transfersSection) {
-      transfersSection.scrollIntoView({ behavior: 'smooth' })
-    }
+    // Navigate to transfers page
+    router.push(`/transfers?organization=${organizationId}&type=payroll`)
   }
 
   const fetchTransfers = async () => {
     try {
-      const response = await fetch(`/api/organization/${organizationId}/transfers?limit=5`)
+      console.log('[OrgPage] Starting fetchTransfers...')
+      setLoadingTransfers(true)
+      
+      const response = await fetch(`/api/organization/${organizationId}/transfers?limit=5&type=payroll`)
       const data = await response.json()
       
+      console.log('[OrgPage] Transfers API response:', data)
+      
       if (data.success) {
-        setTransfers(data.transfers)
+        setTransfers(data.transfers || [])
+        console.log('[OrgPage] Set transfers:', (data.transfers || []).length, 'transfers')
+      } else {
+        console.error('[OrgPage] Transfers API returned error:', data.error)
+        setTransfers([])
       }
     } catch (err) {
-      console.error('Failed to fetch transfers:', err)
+      console.error('[OrgPage] Failed to fetch transfers:', err)
+      setTransfers([])
+    } finally {
+      setLoadingTransfers(false)
     }
   }
 
@@ -171,18 +179,77 @@ export default function OrganizationDetailPage() {
                   </div>
                   <p className="text-sm text-slate-600 mt-1">Treasury balance</p>
                 </div>
-                {transfers.filter(t => (t.amount || 0) > 0).length > 0 ? (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full border-slate-200 hover:bg-slate-50"
-                    onClick={handleGetTransfers}
-                  >
-                    <TrendingUp className="h-3 w-3 mr-2" />
-                    View Transfers
-                  </Button>
+                
+                {/* Recent Payroll Transfers */}
+                {loadingTransfers ? (
+                  <div className="mt-4 space-y-2">
+                    <p className="text-sm font-medium text-slate-700">Recent Payroll Transfers</p>
+                    <div className="flex items-center justify-center p-4">
+                      <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
+                      <span className="ml-2 text-sm text-slate-500">Loading transfers...</span>
+                    </div>
+                  </div>
+                ) : transfers.filter(t => (t.amount || 0) > 0).length > 0 ? (
+                  <div className="mt-4 space-y-2">
+                    <p className="text-sm font-medium text-slate-700">Recent Payroll Transfers</p>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {transfers.filter(t => (t.amount || 0) > 0).slice(0, 3).map((transfer: any) => (
+                        <div key={transfer.id} className="flex items-center justify-between p-2 bg-slate-50/50 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <div className={`p-1 rounded ${
+                              transfer.type === 'incoming' 
+                                ? 'bg-green-100' 
+                                : 'bg-red-100'
+                            }`}>
+                              {transfer.type === 'incoming' ? (
+                                <ArrowDownRight className="h-3 w-3 text-green-600" />
+                              ) : (
+                                <ArrowUpRight className="h-3 w-3 text-red-600" />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-slate-900 truncate">
+                                {transfer.employeeName || (transfer.type === 'incoming' ? 'Received' : 'Sent')}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                {new Date(transfer.createdAt).toLocaleDateString('en-US', { 
+                                  month: 'short', 
+                                  day: 'numeric'
+                                })}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className={`text-sm font-bold ${
+                              transfer.type === 'incoming' 
+                                ? 'text-green-600' 
+                                : 'text-red-600'
+                            }`}>
+                              {transfer.type === 'incoming' ? '+' : '-'}
+                              ${(transfer.amount || 0).toLocaleString(undefined, { 
+                                minimumFractionDigits: 2, 
+                                maximumFractionDigits: 2 
+                              })}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {transfers.filter(t => (t.amount || 0) > 0).length > 3 && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="w-full text-xs h-6 mt-2"
+                        onClick={handleGetTransfers}
+                      >
+                        View All ({transfers.filter(t => (t.amount || 0) > 0).length})
+                      </Button>
+                    )}
+                  </div>
                 ) : (
-                  <p className="text-sm text-slate-500 italic">No transactions yet</p>
+                  <div className="mt-4">
+                    <p className="text-sm text-slate-500 italic">No payroll transfers yet</p>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -264,95 +331,6 @@ export default function OrganizationDetailPage() {
 
         {/* Payroll Management */}
         <Payroll organizationId={organizationId} />
-
-        {/* Recent Transfers with Corridor Styling */}
-        {transfers.filter(t => (t.amount || 0) > 0).length > 0 && (
-          <Card id="transfers-section" className="bg-gradient-to-br from-white/90 to-slate-50/90 border-slate-200/50 shadow-lg hover:shadow-xl transition-shadow">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
-                  <TrendingUp className="h-4 w-4 text-blue-600" />
-                </div>
-                Recent Transfers
-              </CardTitle>
-              <CardDescription className="text-sm">
-                Latest transactions for this organization
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="px-4">
-              <div className="space-y-3">
-                {transfers.filter(t => (t.amount || 0) > 0).map((transfer: any) => (
-                  <div 
-                    key={transfer.id} 
-                    className="flex flex-col gap-3 p-4 border border-slate-200/50 rounded-xl hover:bg-slate-50/50 transition-colors"
-                  >
-                    {/* Transfer Header */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${
-                          transfer.type === 'incoming' 
-                            ? 'bg-green-100' 
-                            : 'bg-red-100'
-                        }`}>
-                          {transfer.type === 'incoming' ? (
-                            <ArrowDownRight className="h-4 w-4 text-green-600" />
-                          ) : (
-                            <ArrowUpRight className="h-4 w-4 text-red-600" />
-                          )}
-                        </div>
-                        <p className={`text-base font-bold ${
-                          transfer.type === 'incoming' 
-                            ? 'text-green-600' 
-                            : 'text-red-600'
-                        }`}>
-                          {transfer.type === 'incoming' ? '+' : '-'}
-                          ${(transfer.amount || 0).toLocaleString(undefined, { 
-                            minimumFractionDigits: 2, 
-                            maximumFractionDigits: 2 
-                          })}
-                        </p>
-                      </div>
-                      <Badge variant="outline" className="text-xs px-2 py-1 bg-slate-50 border-slate-200">
-                        {transfer.status}
-                      </Badge>
-                    </div>
-
-                    {/* Employee Details */}
-                    {transfer.employeeName ? (
-                      <div className="pl-12">
-                        <p className="text-sm font-medium text-slate-900 truncate">
-                          {transfer.employeeName}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {transfer.type === 'incoming' ? 'From' : 'To'} • {new Date(transfer.createdAt).toLocaleDateString('en-US', { 
-                            month: 'short', 
-                            day: 'numeric'
-                          })}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="pl-12">
-                        <p className="text-sm text-slate-600">
-                          {transfer.type === 'incoming' ? 'Received' : 'Sent'}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {new Date(transfer.createdAt).toLocaleDateString('en-US', { 
-                            month: 'short', 
-                            day: 'numeric'
-                          })}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <Button variant="outline" size="sm" className="w-full mt-4 border-slate-200 hover:bg-slate-50">
-                <TrendingUp className="h-3 w-3 mr-2" />
-                View All Transfers
-              </Button>
-            </CardContent>
-          </Card>
-        )}
       </>
     )
   }

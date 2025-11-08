@@ -68,7 +68,7 @@ export async function initiateAuth(email: string): Promise<AuthInitResult> {
         const initResult: any = await client.initAuth({
           email: normalizedEmail,
         });
-        if (initResult?.data) {          
+        if (initResult?.data) {      
           return {
             success: true,
             email: normalizedEmail,
@@ -107,8 +107,7 @@ export async function verifyAuth(
 
     // Use different completion method based on authFlow
     const isNewUser = authFlow === 'signup';
-    const completionMethod = isNewUser ? 'completeAuthAndCreateAccount' : 'completeAuth';
- 
+
     const result: any = isNewUser 
       ? await client.completeAuthAndCreateAccount({
           user: userData,
