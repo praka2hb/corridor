@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/services/jwt-service'
 import { db } from '@/lib/db'
+import { isValidEmail, isValidSolanaAddress } from '@/lib/utils/validation'
 
 export const dynamic = 'force-dynamic';
 
-// GET - Search for users by email
+// GET - Search for users by email or Solana address
 export async function GET(request: NextRequest) {
   try {
     const currentUser = await getCurrentUser()
@@ -14,24 +15,55 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const email = searchParams.get('email')
+    const address = searchParams.get('address')
 
-    if (!email) {
+    if (!email && !address) {
       return NextResponse.json(
-        { error: 'Email parameter is required' },
+        { error: 'Email or address parameter is required' },
         { status: 400 }
       )
     }
 
+    let user = null
+
     // Search for user by email
-    const user = await db.user.findUnique({
-      where: { email: email.toLowerCase() },
-      select: {
-        id: true,
-        email: true,
-        username: true,
-        publicKey: true,
-      },
-    })
+    if (email) {
+      if (!isValidEmail(email)) {
+        return NextResponse.json(
+          { error: 'Invalid email format' },
+          { status: 400 }
+        )
+      }
+
+      user = await db.user.findUnique({
+        where: { email: email.toLowerCase() },
+        select: {
+          id: true,
+          email: true,
+          username: true,
+          publicKey: true,
+        },
+      })
+    }
+    // Search for user by Solana address
+    else if (address) {
+      if (!isValidSolanaAddress(address)) {
+        return NextResponse.json(
+          { error: 'Invalid Solana address format' },
+          { status: 400 }
+        )
+      }
+
+      user = await db.user.findFirst({
+        where: { publicKey: address },
+        select: {
+          id: true,
+          email: true,
+          username: true,
+          publicKey: true,
+        },
+      })
+    }
 
     if (!user) {
       return NextResponse.json({

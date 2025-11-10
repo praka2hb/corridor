@@ -13,6 +13,7 @@ import type { StandingOrderConfig, GridAccountDetails, SolanaDetails } from '@/l
 export async function createPayrollStream({
   organizationId,
   employeeEmail,
+  directAddress,
   amountPerPayment,
   cadence,
   startDate,
@@ -21,7 +22,8 @@ export async function createPayrollStream({
   createdByUserId,
 }: {
   organizationId: string;
-  employeeEmail: string;
+  employeeEmail?: string;
+  directAddress?: string;
   amountPerPayment: number;
   cadence: 'weekly' | 'monthly'; // Grid only supports weekly and monthly
   startDate: string;
@@ -39,55 +41,104 @@ export async function createPayrollStream({
       throw new Error('Organization not found');
     }
 
-    // 2. Find employee by email or public address (must be onboarded user)
-    // Check if employeeEmail is actually a public address (starts with common Solana address prefix)
-    const isPublicAddress = /^[A-Za-z0-9]{32,44}$/.test(employeeEmail);
-    
-    let user;
-    if (isPublicAddress) {
-      // Lookup by public address
+    // Validate that at least one identifier is provided
+    if (!employeeEmail && !directAddress) {
+      throw new Error('Either employeeEmail or directAddress must be provided');
+    }
+
+    // 2. Find or set up employee details
+    let user = null;
+    let payoutAddress = '';
+    let employeeName = '';
+    let employeeEmailAddress = '';
+    let isDirectAddressPayment = false;
+
+    if (directAddress) {
+      // Direct address payment - no user lookup required
+      isDirectAddressPayment = true;
+      payoutAddress = directAddress;
+      employeeName = directAddress.slice(0, 8) + '...' + directAddress.slice(-8);
+      
+      // Try to find if a user exists with this address (optional)
       user = await db.user.findFirst({
-        where: { publicKey: employeeEmail },
+        where: { publicKey: directAddress },
       });
-    } else {
-      // Lookup by email
-      user = await db.user.findUnique({
-        where: { email: employeeEmail },
-      });
-    }
+      
+      if (user) {
+        employeeName = user.username || user.email;
+        employeeEmailAddress = user.email;
+      }
+    } else if (employeeEmail) {
+      // Email-based payment - require user to be onboarded
+      // Check if employeeEmail is actually a public address (starts with common Solana address prefix)
+      const isPublicAddress = /^[A-Za-z0-9]{32,44}$/.test(employeeEmail);
+      
+      if (isPublicAddress) {
+        // Lookup by public address
+        user = await db.user.findFirst({
+          where: { publicKey: employeeEmail },
+        });
+      } else {
+        // Lookup by email
+        user = await db.user.findUnique({
+          where: { email: employeeEmail },
+        });
+      }
 
-    if (!user) {
-      throw new Error('User not found. Employee must be onboarded to the platform first.');
-    }
+      if (!user) {
+        throw new Error('User not found. Employee must be onboarded to the platform first.');
+      }
 
-    if (!user.gridUserId) {
-      throw new Error('User does not have a Grid account. Please complete onboarding first.');
+      if (!user.gridUserId) {
+        throw new Error('User does not have a Grid account. Please complete onboarding first.');
+      }
+
+      if (!user.publicKey) {
+        throw new Error('User does not have a public key. Please complete wallet setup first.');
+      }
+
+      payoutAddress = user.publicKey;
+      employeeName = user.username || user.email;
+      employeeEmailAddress = user.email;
     }
 
     // 3. Find or create employee profile
-    let employee = await db.employeeProfile.findFirst({
-      where: {
-        orgId: organizationId,
-        userId: user.id,
-      },
-    });
+    let employee = null;
+    
+    if (user) {
+      employee = await db.employeeProfile.findFirst({
+        where: {
+          orgId: organizationId,
+          userId: user.id,
+        },
+      });
+    } else if (isDirectAddressPayment && payoutAddress) {
+      // For direct address, try to find existing profile by payout wallet
+      employee = await db.employeeProfile.findFirst({
+        where: {
+          orgId: organizationId,
+          payoutWallet: payoutAddress,
+          userId: null, // Direct address profiles have no userId
+        },
+      });
+    }
 
     if (!employee) {
       // Create employee profile
       employee = await db.employeeProfile.create({
         data: {
           orgId: organizationId,
-          userId: user.id,
-          name: user.username || user.email,
-          email: user.email,
-          payoutWallet: user.publicKey,
+          userId: user?.id || null, // null for direct address payments
+          name: employeeName,
+          email: employeeEmailAddress || null,
+          payoutWallet: payoutAddress,
           status: 'active',
         },
       });
     }
 
-    if (!user.publicKey) {
-      throw new Error('User does not have a public key. Please complete wallet setup first.');
+    if (!payoutAddress) {
+      throw new Error('Payout address is required');
     }
 
     // 4. Calculate amount in base units (USDC has 6 decimals)
@@ -156,13 +207,40 @@ export async function createPayrollStream({
     };
 
     const destination: SolanaDetails = {
-      address: user.publicKey, // Use user's public key as destination address
+      address: payoutAddress, // Use payout address (from user or direct address)
       currency: 'usdc',
     };
 
+    // For direct address payments, we need the organization's gridUserId
+    // For user-based payments, use the user's gridUserId
+    let gridUserIdForStandingOrder = '';
+    
+    if (isDirectAddressPayment) {
+      // Get organization owner's gridUserId for direct address payments
+      const organizationOwner = await db.organizationMember.findFirst({
+        where: {
+          organizationId,
+          role: 'owner',
+        },
+        include: {
+          user: true,
+        },
+      });
+
+      if (!organizationOwner?.user?.gridUserId) {
+        throw new Error('Organization owner Grid user ID not found');
+      }
+
+      gridUserIdForStandingOrder = organizationOwner.user.gridUserId;
+    } else if (user?.gridUserId) {
+      gridUserIdForStandingOrder = user.gridUserId;
+    } else {
+      throw new Error('Grid user ID not found for standing order');
+    }
+
     const standingOrderConfig: StandingOrderConfig = {
       amount: amountInBaseUnits.toString(),
-      grid_user_id: user.gridUserId, // Required at root level
+      grid_user_id: gridUserIdForStandingOrder, // Use appropriate gridUserId
       source,
       destination,
       frequency: cadence, // Grid supports weekly, monthly
@@ -279,29 +357,33 @@ export async function createPayrollStream({
       },
     });
 
-    // 7. Create notification for employee
-    await createNotification({
-      userId: user.id,
-      type: 'payroll_created',
-      title: 'Payroll Stream Created',
-      body: `You've been added to ${organization.name}'s payroll. You'll receive ${amountPerPayment} USDC ${cadence}.`,
-      metadata: {
-        streamId: stream.id,
-        organizationId,
-        amount: amountPerPayment,
-        cadence,
-      },
-    });
+    // 7. Create notification for employee (only if user exists)
+    if (user) {
+      await createNotification({
+        userId: user.id,
+        type: 'payroll_created',
+        title: 'Payroll Stream Created',
+        body: `You've been added to ${organization.name}'s payroll. You'll receive ${amountPerPayment} USDC ${cadence}.`,
+        metadata: {
+          streamId: stream.id,
+          organizationId,
+          amount: amountPerPayment,
+          cadence,
+        },
+      });
+    }
 
-    // 8. Send email notification
-    await sendPayrollCreatedEmail({
-      email: user.email,
-      employeeName: employee.name,
-      organizationName: organization.name,
-      amount: amountPerPayment,
-      frequency: cadence,
-      startDate,
-    });
+    // 8. Send email notification (only if email exists)
+    if (employeeEmailAddress) {
+      await sendPayrollCreatedEmail({
+        email: employeeEmailAddress,
+        employeeName: employee.name,
+        organizationName: organization.name,
+        amount: amountPerPayment,
+        frequency: cadence,
+        startDate,
+      });
+    }
 
     console.log('[PayrollService] Payroll stream created:', stream.id);
 

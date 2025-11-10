@@ -47,11 +47,16 @@ export async function POST(
     // 3. Parse request body
     const body = await request.json();
     console.log('[PayrollAPI] Received request body:', body);
-    const { employeeEmail, amountPerPayment, cadence, startDate, endDate, teamId } = body;
+    const { employeeEmail, directAddress, amountPerPayment, cadence, startDate, endDate, teamId } = body;
 
     // Detailed validation with specific error messages
     const missingFields = [];
-    if (!employeeEmail) missingFields.push('employeeEmail');
+    
+    // Either employeeEmail or directAddress must be provided
+    if (!employeeEmail && !directAddress) {
+      missingFields.push('employeeEmail or directAddress');
+    }
+    
     if (!amountPerPayment && amountPerPayment !== 0) missingFields.push('amountPerPayment');
     if (!cadence) missingFields.push('cadence');
     if (!startDate) missingFields.push('startDate');
@@ -60,6 +65,7 @@ export async function POST(
       console.error('[PayrollAPI] Missing required fields:', missingFields);
       console.error('[PayrollAPI] Received values:', {
         employeeEmail: employeeEmail || 'MISSING',
+        directAddress: directAddress || 'MISSING',
         amountPerPayment: amountPerPayment !== undefined ? amountPerPayment : 'MISSING',
         cadence: cadence || 'MISSING',
         startDate: startDate || 'MISSING',
@@ -77,6 +83,7 @@ export async function POST(
     const stream = await createPayrollStream({
       organizationId,
       employeeEmail,
+      directAddress,
       amountPerPayment,
       cadence,
       startDate,

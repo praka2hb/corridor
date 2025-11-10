@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Progress } from "@/components/ui/progress"
 import { Loader2, User, Mail, DollarSign, Calendar, CheckCircle, AlertCircle, ArrowRight, Building2 } from "lucide-react"
 import { format } from "date-fns"
+import { isValidSolanaAddress } from "@/lib/utils/validation"
 
 interface AddEmployeePayrollDialogProps {
   organizationId: string
@@ -59,29 +60,68 @@ export function AddEmployeePayrollDialog({
     setError('')
 
     try {
-      // Lookup user by email or public address
-      const queryParam = lookupType === 'email' ? 'email' : 'publicAddress'
-      const response = await fetch(`/api/users?${queryParam}=${encodeURIComponent(lookupValue)}`)
-      const data = await response.json()
+      // If it's an address lookup, validate the Solana address format
+      if (lookupType === 'address') {
+        if (!isValidSolanaAddress(lookupValue)) {
+          throw new Error('Invalid Solana address format')
+        }
 
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to lookup user')
+        // Try to lookup user by address, but allow direct address if not found
+        try {
+          const queryParam = 'publicAddress'
+          const response = await fetch(`/api/users?${queryParam}=${encodeURIComponent(lookupValue)}`)
+          const data = await response.json()
+
+          if (data.success && data.user) {
+            // User found - use their details
+            setUserDetails(data.user)
+          } else {
+            // User not found - create a temporary user detail object for direct address
+            setUserDetails({
+              id: '',
+              email: '',
+              username: lookupValue.slice(0, 8) + '...' + lookupValue.slice(-8),
+              publicKey: lookupValue,
+              gridUserId: '',
+            })
+          }
+        } catch (err) {
+          // Even if lookup fails, allow direct address payment
+          setUserDetails({
+            id: '',
+            email: '',
+            username: lookupValue.slice(0, 8) + '...' + lookupValue.slice(-8),
+            publicKey: lookupValue,
+            gridUserId: '',
+          })
+        }
+        
+        setStep('details')
+      } else {
+        // Email lookup - require user to be onboarded
+        const queryParam = 'email'
+        const response = await fetch(`/api/users?${queryParam}=${encodeURIComponent(lookupValue)}`)
+        const data = await response.json()
+
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to lookup user')
+        }
+
+        if (!data.user) {
+          throw new Error('User not found. Employee must be onboarded to the platform first.')
+        }
+
+        if (!data.user.gridUserId) {
+          throw new Error('User does not have a Grid account. Please complete onboarding first.')
+        }
+
+        if (!data.user.publicKey) {
+          throw new Error('User does not have a public key. Please complete wallet setup first.')
+        }
+
+        setUserDetails(data.user)
+        setStep('details')
       }
-
-      if (!data.user) {
-        throw new Error('User not found. Employee must be onboarded to the platform first.')
-      }
-
-      if (!data.user.gridUserId) {
-        throw new Error('User does not have a Grid account. Please complete onboarding first.')
-      }
-
-      if (!data.user.publicKey) {
-        throw new Error('User does not have a public key. Please complete wallet setup first.')
-      }
-
-      setUserDetails(data.user)
-      setStep('details')
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -143,23 +183,26 @@ export function AddEmployeePayrollDialog({
     setError('')
 
     // Construct payload with all required fields
-    // Use userDetails.email if available, otherwise use public key as identifier
-    const employeeEmailToSubmit = userDetails.email || userDetails.publicKey;
+    // If user has email, use email lookup; otherwise use direct address
+    const isDirectAddress = !userDetails.email || !userDetails.gridUserId;
     
-    const payload = {
-      employeeEmail: employeeEmailToSubmit,
+    const payload: any = {
       amountPerPayment: amountValue,
       cadence,
       startDate,
       ...(endDate && { endDate }),
     }
 
+    if (isDirectAddress && userDetails.publicKey) {
+      // Direct address payment (no user lookup required)
+      payload.directAddress = userDetails.publicKey
+    } else {
+      // Email-based payment (user must be onboarded)
+      payload.employeeEmail = userDetails.email
+    }
+
     console.log('[AddEmployeeDialog] Submitting payroll with payload:', payload)
-    console.log('[AddEmployeeDialog] Email values:', { 
-      emailState: email, 
-      userDetailsEmail: userDetails.email,
-      using: employeeEmailToSubmit 
-    })
+    console.log('[AddEmployeeDialog] Is direct address:', isDirectAddress)
 
     try {
       const response = await fetch(`/api/organization/${organizationId}/payroll`, {
@@ -262,7 +305,7 @@ export function AddEmployeePayrollDialog({
                 <h3 className="font-semibold text-slate-900">Find Employee</h3>
               </div>
               <p className="text-sm text-slate-600 mb-4">
-                Enter either the email address or public address of the employee you want to add to payroll. They must be already onboarded to the platform.
+                Enter either the email address (requires user to be onboarded) or a Solana public address (allows direct payments to any address).
               </p>
             </div>
             
