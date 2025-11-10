@@ -37,12 +37,15 @@ export function AddEmployeePayrollDialog({
   const [step, setStep] = useState<'email' | 'details' | 'confirm'>('email')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [addressValid, setAddressValid] = useState<boolean | null>(null)
+  const [addressVerified, setAddressVerified] = useState(false)
   
   // Form data
   const [email, setEmail] = useState('')
   const [publicAddress, setPublicAddress] = useState('')
   const [lookupType, setLookupType] = useState<'email' | 'address'>('email')
   const [userDetails, setUserDetails] = useState<UserLookupResult | null>(null)
+  const [isDirectAddress, setIsDirectAddress] = useState(false)
   const [amountPerPayment, setAmountPerPayment] = useState('')
   const [cadence, setCadence] = useState<'weekly' | 'monthly'>('monthly')
   const [startDate, setStartDate] = useState('')
@@ -63,8 +66,12 @@ export function AddEmployeePayrollDialog({
       // If it's an address lookup, validate the Solana address format
       if (lookupType === 'address') {
         if (!isValidSolanaAddress(lookupValue)) {
+          setAddressValid(false)
           throw new Error('Invalid Solana address format')
         }
+
+        setAddressValid(true)
+        setAddressVerified(false)
 
         // Try to lookup user by address, but allow direct address if not found
         try {
@@ -75,6 +82,8 @@ export function AddEmployeePayrollDialog({
           if (data.success && data.user) {
             // User found - use their details
             setUserDetails(data.user)
+            setIsDirectAddress(false)
+            setAddressVerified(true)
           } else {
             // User not found - create a temporary user detail object for direct address
             setUserDetails({
@@ -84,6 +93,8 @@ export function AddEmployeePayrollDialog({
               publicKey: lookupValue,
               gridUserId: '',
             })
+            setIsDirectAddress(true)
+            setAddressVerified(true)
           }
         } catch (err) {
           // Even if lookup fails, allow direct address payment
@@ -94,6 +105,8 @@ export function AddEmployeePayrollDialog({
             publicKey: lookupValue,
             gridUserId: '',
           })
+          setIsDirectAddress(true)
+          setAddressVerified(true)
         }
         
         setStep('details')
@@ -235,11 +248,14 @@ export function AddEmployeePayrollDialog({
     setPublicAddress('')
     setLookupType('email')
     setUserDetails(null)
+    setIsDirectAddress(false)
     setAmountPerPayment('')
     setCadence('monthly')
     setStartDate('')
     setEndDate('')
     setError('')
+    setAddressValid(null)
+    setAddressVerified(false)
   }
 
   const handleClose = () => {
@@ -317,6 +333,9 @@ export function AddEmployeePayrollDialog({
                   onClick={() => {
                     setLookupType('email')
                     setPublicAddress('')
+                    setAddressValid(null)
+                    setAddressVerified(false)
+                    setError('')
                   }}
                   className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
                     lookupType === 'email'
@@ -331,6 +350,9 @@ export function AddEmployeePayrollDialog({
                   onClick={() => {
                     setLookupType('address')
                     setEmail('')
+                    setAddressValid(null)
+                    setAddressVerified(false)
+                    setError('')
                   }}
                   className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
                     lookupType === 'address'
@@ -346,48 +368,84 @@ export function AddEmployeePayrollDialog({
                 <Label htmlFor={lookupType === 'email' ? 'email' : 'publicAddress'} className="text-sm font-medium text-slate-700">
                   {lookupType === 'email' ? 'Employee Email Address' : 'Employee Public Address'}
                 </Label>
-                <div className="flex gap-3">
-                  <div className="flex-1 relative">
-                    {lookupType === 'email' ? (
-                      <>
-                        <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                        <Input
-                          id="email"
-                          type="email"
-                          placeholder="employee@company.com"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleLookup()}
-                          className="pl-10 h-12 border-slate-200 focus:border-sky-500 focus:ring-sky-500"
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <User className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                        <Input
-                          id="publicAddress"
-                          type="text"
-                          placeholder="Public Address (e.g., 5KJt...)"
-                          value={publicAddress}
-                          onChange={(e) => setPublicAddress(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleLookup()}
-                          className="pl-10 h-12 border-slate-200 focus:border-sky-500 focus:ring-sky-500 font-mono text-sm"
-                        />
-                      </>
-                    )}
-                  </div>
-                  <Button 
-                    onClick={handleLookup}
-                    disabled={loading || (lookupType === 'email' ? !email : !publicAddress)}
-                    className="h-12 px-6 bg-blue-600 hover:bg-blue-700"
-                  >
-                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-                  </Button>
+                <div className="relative">
+                  {lookupType === 'email' ? (
+                    <>
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 z-10" />
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="employee@company.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && email && handleLookup()}
+                        className="pl-10 h-12 border-slate-200 focus:border-sky-500 focus:ring-sky-500"
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 z-10" />
+                      <Input
+                        id="publicAddress"
+                        type="text"
+                        placeholder="Public Address (e.g., 5KJt...)"
+                        value={publicAddress}
+                        onChange={(e) => {
+                          setPublicAddress(e.target.value)
+                          setError('')
+                          // Real-time validation
+                          if (e.target.value.trim() === '') {
+                            setAddressValid(null)
+                          } else {
+                            setAddressValid(isValidSolanaAddress(e.target.value.trim()))
+                          }
+                        }}
+                        onKeyDown={(e) => e.key === 'Enter' && publicAddress && addressValid !== false && handleLookup()}
+                        className={`pl-10 pr-10 h-12 border-slate-200 focus:border-sky-500 focus:ring-sky-500 font-mono text-sm ${
+                          addressValid === false ? 'border-red-300 focus:border-red-500' : 
+                          addressValid === true ? 'border-green-300 focus:border-green-500' : ''
+                        }`}
+                      />
+                      {addressValid === true && (
+                        <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500 z-10" />
+                      )}
+                      {addressValid === false && (
+                        <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500 z-10" />
+                      )}
+                    </>
+                  )}
                 </div>
-                {(lookupType === 'email' ? email : publicAddress) && !loading && (
+                {lookupType === 'email' && email && !loading && (
                   <p className="text-xs text-slate-500 flex items-center gap-1">
                     <CheckCircle className="h-3 w-3 text-green-500" />
                     Ready to lookup employee
+                  </p>
+                )}
+                {lookupType === 'address' && publicAddress && !loading && (
+                  <>
+                    {addressValid === true && (
+                      <p className="text-xs text-green-600 flex items-center gap-1">
+                        <CheckCircle className="h-3 w-3" />
+                        Valid Solana address - Click Verify to continue
+                      </p>
+                    )}
+                    {addressValid === false && (
+                      <p className="text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        Invalid Solana address format
+                      </p>
+                    )}
+                    {addressValid === null && publicAddress && (
+                      <p className="text-xs text-slate-500 flex items-center gap-1">
+                        Enter a valid Solana address
+                      </p>
+                    )}
+                  </>
+                )}
+                {loading && (
+                  <p className="text-xs text-slate-500 flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    {lookupType === 'address' ? 'Verifying address...' : 'Looking up employee...'}
                   </p>
                 )}
               </div>
@@ -398,36 +456,61 @@ export function AddEmployeePayrollDialog({
         {step === 'details' && userDetails && (
           <div className="space-y-6">
             {/* User Details */}
-            <div className="p-6 bg-gradient-to-r from-green-50/80 to-emerald-50/80 rounded-xl border border-green-200/50">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
+            {!isDirectAddress ? (
+              /* Employee Found - Minimal Display */
+              <div className="p-6 bg-gradient-to-r from-green-50/80 to-emerald-50/80 rounded-xl border border-green-200/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center">
+                      <User className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-900 text-lg">
+                        {userDetails.username || userDetails.email}
+                      </p>
+                      {userDetails.email && (
+                        <p className="text-sm text-slate-600 mt-0.5">{userDetails.email}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-green-100 rounded-full">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span className="text-xs font-medium text-green-700">Corridor Account - Verified</span>
+                  </div>
                 </div>
-                <h3 className="font-semibold text-slate-900">Employee Found</h3>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-slate-600 mb-1">Name</p>
-                  <p className="font-medium text-slate-900">{userDetails.username || userDetails.email}</p>
+            ) : (
+              /* Direct Address - Full Display */
+              <div className="p-6 bg-gradient-to-r from-blue-50/80 to-sky-50/80 rounded-xl border border-blue-200/50">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+                      <CheckCircle className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <h3 className="font-semibold text-slate-900">Email Verified</h3>
+                  </div>
+                  <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-md">
+                    Direct Address
+                  </span>
                 </div>
-                <div>
-                  <p className="text-slate-600 mb-1">Email</p>
-                  <p className="font-medium text-slate-900">{userDetails.email}</p>
-                </div>
-                {userDetails.publicKey && (
-                  <div className="md:col-span-2">
-                    <p className="text-slate-600 mb-1">Wallet Address</p>
-                    <p className="font-medium text-slate-900 font-mono text-xs">
-                      {userDetails.publicKey.slice(0, 8)}...{userDetails.publicKey.slice(-8)}
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <p className="text-slate-600 mb-1">Username</p>
+                    <p className="font-medium text-slate-900">
+                      {userDetails.username || userDetails.email || 'N/A'}
                     </p>
                   </div>
-                )}
-                <div>
-                  <p className="text-slate-600 mb-1">KYC Status</p>
-                  <p className="font-medium text-slate-900">{userDetails.kycStatus || 'Not verified'}</p>
+                  {userDetails.publicKey && (
+                    <div>
+                      <p className="text-slate-600 mb-1">Wallet Address</p>
+                      <p className="font-medium text-slate-900 font-mono text-xs break-all">
+                        {userDetails.publicKey}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Payroll Configuration */}
             <div className="p-6 bg-gradient-to-r from-slate-50/80 to-blue-50/80 rounded-xl border border-slate-200/50">
@@ -540,54 +623,70 @@ export function AddEmployeePayrollDialog({
         {step === 'confirm' && userDetails && (
           <div className="space-y-6">
             <div className="p-6 bg-gradient-to-r from-blue-50/80 to-sky-50/80 rounded-xl border border-blue-200/50">
-              <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center gap-3 mb-6">
                 <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
                   <CheckCircle className="h-4 w-4 text-blue-600" />
                 </div>
                 <h3 className="font-semibold text-slate-900">Confirm Payroll Details</h3>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <h4 className="font-medium text-slate-900">Employee Information</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Name:</span>
-                      <span className="font-medium text-slate-900">{userDetails.username || userDetails.email}</span>
+              {/* Employee Information - Minimal */}
+              {!isDirectAddress ? (
+                <div className="mb-6 p-4 bg-white rounded-lg border border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center">
+                        <User className="h-5 w-5 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-900">{userDetails.username || userDetails.email}</p>
+                        {userDetails.email && (
+                          <p className="text-sm text-slate-600">{userDetails.email}</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Email:</span>
-                      <span className="font-medium text-slate-900">{userDetails.email}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">KYC Status:</span>
-                      <span className="font-medium text-slate-900">{userDetails.kycStatus || 'Not verified'}</span>
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-green-100 rounded-full">
+                      <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                      <span className="text-xs font-medium text-green-700">Corridor Account - Verified</span>
                     </div>
                   </div>
                 </div>
-                
-                <div className="space-y-3">
-                  <h4 className="font-medium text-slate-900">Payroll Configuration</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Amount:</span>
-                      <span className="font-medium text-slate-900">${amountPerPayment} USDC {getCadenceLabel(cadence)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Start Date:</span>
-                      <span className="font-medium text-slate-900">{format(new Date(startDate), 'PPP')}</span>
-                    </div>
-                    {endDate && (
-                      <div className="flex justify-between">
-                        <span className="text-slate-600">End Date:</span>
-                        <span className="font-medium text-slate-900">{format(new Date(endDate), 'PPP')}</span>
-                      </div>
-                    )}
+              ) : (
+                <div className="mb-6 p-4 bg-white rounded-lg border border-slate-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="font-medium text-slate-900">{userDetails.username || 'Direct Address'}</p>
+                    <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-md">
+                      Direct Address
+                    </span>
                   </div>
+                  {userDetails.publicKey && (
+                    <p className="text-xs text-slate-600 font-mono break-all">{userDetails.publicKey}</p>
+                  )}
+                </div>
+              )}
+              
+              {/* Payroll Configuration */}
+              <div className="space-y-3">
+                <h4 className="font-medium text-slate-900 text-sm mb-3">Payroll Configuration</h4>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                    <span className="text-slate-600">Amount:</span>
+                    <span className="font-medium text-slate-900">${amountPerPayment} USDC {getCadenceLabel(cadence)}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                    <span className="text-slate-600">Start Date:</span>
+                    <span className="font-medium text-slate-900">{format(new Date(startDate), 'PPP')}</span>
+                  </div>
+                  {endDate && (
+                    <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                      <span className="text-slate-600">End Date:</span>
+                      <span className="font-medium text-slate-900">{format(new Date(endDate), 'PPP')}</span>
+                    </div>
+                  )}
                 </div>
               </div>
               
-              <div className="mt-4 p-4 bg-slate-50/50 rounded-lg">
+              <div className="mt-6 p-4 bg-slate-50/50 rounded-lg">
                 <p className="text-xs text-slate-600">
                   <strong>Note:</strong> Once created, this payroll stream will run automatically and cannot be paused or stopped. 
                   Payments will be processed according to the schedule you've configured.
@@ -605,11 +704,25 @@ export function AddEmployeePayrollDialog({
               </Button>
               <Button 
                 onClick={handleLookup} 
-                disabled={loading || (lookupType === 'email' ? !email : !publicAddress)}
+                disabled={loading || (lookupType === 'email' ? !email : !publicAddress || addressValid === false)}
                 className="bg-blue-600 hover:bg-blue-700"
               >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ArrowRight className="h-4 w-4 mr-2" />}
-                Lookup Employee
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    {lookupType === 'address' ? 'Verifying...' : 'Looking up...'}
+                  </>
+                ) : lookupType === 'address' ? (
+                  <>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Verify Address
+                  </>
+                ) : (
+                  <>
+                    <ArrowRight className="h-4 w-4 mr-2" />
+                    Lookup Employee
+                  </>
+                )}
               </Button>
             </>
           )}
